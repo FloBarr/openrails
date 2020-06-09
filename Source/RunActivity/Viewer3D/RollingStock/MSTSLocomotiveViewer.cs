@@ -1785,12 +1785,51 @@ namespace Orts.Viewer3D.RollingStock
         public int GetDrawIndex()
         {
             var data = Locomotive.GetDataOf(Control);
+            bool ImpulseControl = false;
 
             var index = 0;
             switch (ControlDiscrete.ControlType)
             {
-                case CABViewControlTypes.ENGINE_BRAKE:
                 case CABViewControlTypes.TRAIN_BRAKE:
+                    Console.WriteLine("Frein: Commande type "+ ControlDiscrete.ControlStyle);
+                    //** Impulsion style brake lever                                                               **//
+                    if ((ControlDiscrete.ControlStyle == CABViewControlStyles.IMPULSE))
+                    {
+                        
+
+                        ImpulseControl = true;
+                        int BrakeOffset = 1;
+                        int NumFrame = ControlDiscrete.FramesCount;
+                        if (NumFrame == 3) BrakeOffset = 0;
+                        if (((UserInput.IsDown(UserCommand.ControlTrainBrakeZero) == true) || (data == 1)) && (BrakeOffset == 1))
+                        {
+                            //** Zero Pos, train brake with emergency pos                 **//
+                            index = 0;    //PercentToIndex(DataTemp);
+                        }
+
+                        else if (UserInput.IsDown(UserCommand.ControlTrainBrakeIncrease) == true)
+                        {
+                            //** increasing brake force  **//
+                            index = (0 + BrakeOffset);     //PercentToIndex(DataTemp);
+                        }
+                        else if (UserInput.IsDown(UserCommand.ControlTrainBrakeDecrease) == true)
+                        {
+                            //** decreasing brake force  **//
+                            index = (2 + BrakeOffset);    //PercentToIndex(DataTemp);
+                        }
+                        else
+                        {
+                            //** STOP pos, holding power    **//
+                            index = (1 + BrakeOffset);    //PercentToIndex(DataTemp);
+                        }
+                    }
+                    //** Enf of impulsion style             **//
+                    //** "Classic" control using percents
+                    else
+                        index = PercentToIndex(data);
+                    break;
+
+                case CABViewControlTypes.ENGINE_BRAKE:
                 case CABViewControlTypes.REGULATOR:
                 case CABViewControlTypes.CUTOFF:
                 case CABViewControlTypes.BLOWER:
@@ -1805,6 +1844,46 @@ namespace Orts.Viewer3D.RollingStock
                     index = PercentToIndex(data);
                     break;
                 case CABViewControlTypes.THROTTLE:
+                    //** Impulsion style throttle control                                                           **//
+                    //** Lever is set on "+" to increase power, "-" to decrease. These positions are unstable       **//
+                    //** When released, the lever come back to a stable intermediate position, holding throttle     **//
+                    //** Throttle set to 0 put the lever on a 0 pos                                                 **//
+                    Console.WriteLine("Mpt: Commande type " + ControlDiscrete.ControlStyle);
+                    if (ControlDiscrete.ControlStyle == CABViewControlStyles.IMPULSE)
+                    {
+
+                        float DataTemp;
+                        if ((UserInput.IsDown(UserCommand.ControlThrottleZero) == true) || (data == 0))
+                        {
+                            //** Zero Pos                   **//
+                            DataTemp = 0;
+                            index = PercentToIndex(DataTemp);
+                        }
+                        else if (UserInput.IsDown(UserCommand.ControlThrottleDecrease) == true)
+                        {
+                            //** "-" pos, decreasing power  **//
+                            DataTemp = 0.333F;
+                            index = PercentToIndex(DataTemp);
+                        }
+                        else if (UserInput.IsDown(UserCommand.ControlThrottleIncrease) == true)
+                        {
+                            //** "+" pos, decreasing power  **//
+                            DataTemp = 1;
+                            index = PercentToIndex(DataTemp);
+                        }
+                        else
+                        {
+                            //** STOP pos, holding power    **//
+                            DataTemp = 0.666F;
+                            index = PercentToIndex(DataTemp);
+                        }
+                    }
+                    //** Enf of impulsion style             **//
+                    //** "Classic" control using percents
+                    else
+                        index = PercentToIndex(data);
+                    break;
+
                 case CABViewControlTypes.THROTTLE_DISPLAY:
                     index = PercentToIndex(data);
                     break;
@@ -1842,12 +1921,55 @@ namespace Orts.Viewer3D.RollingStock
                         index = PercentToIndex(Locomotive.GetCombinedHandleValue(false));
                     break;
                 case CABViewControlTypes.CP_HANDLE:
-                    if (Locomotive.CombinedControlType == MSTSLocomotive.CombinedControl.ThrottleDynamic && Locomotive.DynamicBrakePercent >= 0
-                        || Locomotive.CombinedControlType == MSTSLocomotive.CombinedControl.ThrottleAir && Locomotive.TrainBrakeController.CurrentValue > 0)
-                        index = PercentToIndex(Locomotive.GetCombinedHandleValue(false));
+                    //** Impulse Mode : Between 0 and 0.5, traction, between 0.5 and 1, braking **//
+                    if ((ControlDiscrete.ControlStyle == CABViewControlStyles.IMPULSE) && (ControlDiscrete.FramesCount == 8))
+                    {
+                        ImpulseControl = true;
+                        float DataCP = Locomotive.GetCombinedHandleValue(false);
+
+                        if ((UserInput.IsDown(UserCommand.ControlThrottleZero) == true) || (DataCP == 0.5))
+                        {
+                            //** Zero Pos                   **//
+                            if (Locomotive.DynamicBrake == false) index = 3;
+                            else index = 4;
+                        }
+                        else if (UserInput.IsDown(UserCommand.ControlThrottleDecrease) == true)
+                        {
+                            //** "-" pos, decreasing power  **//
+                            if (DataCP <= 0.5) index = 2;
+                            else index = 7;
+                        }
+                        else if (UserInput.IsDown(UserCommand.ControlThrottleIncrease) == true)
+                        {
+                            //** "+" pos, decreasing power  **//
+                            if (DataCP <= 0.5) index = 0;
+                            else index = 5;
+                        }
+                        else
+                        {
+                            //** STOP pos, holding power    **//
+                            if (DataCP <= 0.5) index = 1;
+                            else index = 6;
+
+                        }
+
+                        //                        index = PercentToIndex(DataTemp);
+                        Console.WriteLine("MPT Pos {0} ", DataCP);
+
+                        break;
+                    }
+                    //** Enf of impulsion style             **//
+                    //** "Classic" control using percents
                     else
-                        index = PercentToIndex(Locomotive.GetCombinedHandleValue(false));
-                    break;
+                    {
+                        if (Locomotive.CombinedControlType == MSTSLocomotive.CombinedControl.ThrottleDynamic && Locomotive.DynamicBrakePercent >= 0
+                            || Locomotive.CombinedControlType == MSTSLocomotive.CombinedControl.ThrottleAir && Locomotive.TrainBrakeController.CurrentValue > 0)
+                            index = PercentToIndex(Locomotive.GetCombinedHandleValue(false));
+                        else
+                            index = PercentToIndex(Locomotive.GetCombinedHandleValue(false));
+                        break;
+                    }
+
                 case CABViewControlTypes.ALERTER_DISPLAY:
                 case CABViewControlTypes.RESET:
                 case CABViewControlTypes.WIPERS:
@@ -1959,14 +2081,19 @@ namespace Orts.Viewer3D.RollingStock
                     break;
             }
             // If it is a control with NumPositions and NumValues, the index becomes the reference to the Positions entry, which in turn is the frame index within the .ace file
-            if (ControlDiscrete is CVCDiscrete && !(ControlDiscrete is CVCSignal) && (ControlDiscrete as CVCDiscrete).Positions.Count > index &&
-                (ControlDiscrete as CVCDiscrete).Positions.Count == ControlDiscrete.Values.Count && index >= 0)
-                index = (ControlDiscrete as CVCDiscrete).Positions[index];
+            if (ImpulseControl == false)
+            {
+                if (ControlDiscrete is CVCDiscrete && !(ControlDiscrete is CVCSignal) && (ControlDiscrete as CVCDiscrete).Positions.Count > index &&
+                    (ControlDiscrete as CVCDiscrete).Positions.Count == ControlDiscrete.Values.Count && index >= 0)
+                    index = (ControlDiscrete as CVCDiscrete).Positions[index];
 
-            if (index >= ControlDiscrete.FramesCount) index = ControlDiscrete.FramesCount - 1;
+                if (index >= ControlDiscrete.FramesCount) index = ControlDiscrete.FramesCount - 1;
+
+            }
             if (index < 0) index = 0;
             return index;
         }
+
 
         /// <summary>
         /// Converts absolute mouse movement to control value change, respecting the configured orientation and increase direction
