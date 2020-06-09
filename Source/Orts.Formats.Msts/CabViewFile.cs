@@ -258,7 +258,10 @@ namespace Orts.Formats.Msts
         PRESSED,
         ONOFF, 
         _24HOUR, 
-        _12HOUR
+        _12HOUR,
+
+        //** Impulsion control (stables & unstables positions    **//
+        IMPULSE
     }
 
     public enum CABViewControlUnits
@@ -1105,7 +1108,13 @@ namespace Orts.Formats.Msts
 
                 // MSTS ignores/overrides various settings by the following exceptional cases:
                 if (ControlType == CABViewControlTypes.CP_HANDLE)
-                    ControlStyle = CABViewControlStyles.NOT_SPRUNG;
+                {
+                    if (ControlStyle != CABViewControlStyles.IMPULSE)
+                    {
+                        ControlStyle = CABViewControlStyles.NOT_SPRUNG;
+                    }
+                }
+
                 if (ControlType == CABViewControlTypes.PANTOGRAPH || ControlType == CABViewControlTypes.PANTOGRAPH2 ||
                     ControlType == CABViewControlTypes.ORTS_PANTOGRAPH3 || ControlType == CABViewControlTypes.ORTS_PANTOGRAPH4)
                     ControlStyle = CABViewControlStyles.ONOFF;
