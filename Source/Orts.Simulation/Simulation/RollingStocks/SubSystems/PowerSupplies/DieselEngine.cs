@@ -546,6 +546,17 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
             DieselMinOilPressurePSI = copy.DieselMinOilPressurePSI;
             DieselMaxTemperatureDeg = copy.DieselMaxTemperatureDeg;
 
+            AESSCoolingLowTemp = copy.AESSCoolingLowTemp;
+            AESSDelayBeforeShutdown = copy.AESSDelayBeforeShutdown;
+            AESSForceForStartup = copy.AESSForceForStartup;
+            AESSMainResLowPressure = copy.AESSMainResLowPressure;
+            AESSThrottleForStartup = copy.AESSThrottleForStartup;
+            AESSEquiped = copy.AESSEquiped;
+            AESSEnabled = copy.AESSEnabled;
+
+            //** Test delay before starting **//
+            DelayBeforeStarting = copy.DelayBeforeStarting;
+
             if (copy.GearBox != null)
             {
                 GearBox = new GearBox(copy.GearBox, this);
@@ -817,6 +828,26 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
         /// The engine is connected to the gearbox
         /// </summary>
         public bool HasGearBox { get { return GearBox != null; } }
+
+        //** AESS & MU add      **//
+        public float DieselSerie = 0;
+
+        public float AESSCoolingLowTemp;
+        public float AESSDelayBeforeShutdown;
+        public float AESSThrottleForStartup;
+        public float AESSForceForStartup;
+        public float AESSMainResLowPressure;
+        public float TimeSinceStop;
+        public float TimeSinceAESSConditionsOK;
+
+        public bool AESSEquiped = false;
+        public bool AESSEnabled = false;
+        //** End of AESS & MU   **//
+
+        //** Test delay before startup      **//
+        public float DelayBeforeStarting = 0;
+        public float DelaySinceStartingOrder = 0;
+
         #endregion
 
         /// <summary>
@@ -885,7 +916,19 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                     case "temptimeconstant": DieselTempTimeConstantSec = stf.ReadFloatBlock(STFReader.UNITS.Time, 0); initLevel |= SettingsFlags.TempTimeConstant; break;
                     case "opttemperature": DieselOptimalTemperatureDegC = stf.ReadFloatBlock(STFReader.UNITS.TemperatureDifference, 95f); initLevel |= SettingsFlags.OptTemperature; break;
                     case "idletemperature": DieselIdleTemperatureDegC = stf.ReadFloatBlock(STFReader.UNITS.TemperatureDifference, 75f); initLevel |= SettingsFlags.IdleTemperature; break;
+                    //** AESS Add       **//
+                    case "aesscoolinglowtemp": AESSCoolingLowTemp = stf.ReadFloatBlock(STFReader.UNITS.None, 95f); AESSEquiped = true; AESSEnabled = true; break;
+                    case "aessdelaybeforeshutdown": AESSDelayBeforeShutdown = stf.ReadUIntBlock(0); AESSEquiped = true; AESSEnabled = true; break;
+                    case "aessthrottleforstartup": AESSThrottleForStartup = stf.ReadFloatBlock(STFReader.UNITS.None, 0); AESSEquiped = true; AESSEnabled = true; break;
+                    case "aessforceforstartup": AESSForceForStartup = stf.ReadFloatBlock(STFReader.UNITS.Force, 0); AESSEquiped = true; AESSEnabled = true; break;
+                    case "aessmainreslowpressure": AESSMainResLowPressure = stf.ReadFloatBlock(STFReader.UNITS.PressureDefaultPSI, 120f); AESSEquiped = true; AESSEnabled = true; break;
+                    //** End of AESS    **//
+
+                    //** For Test, delay before starting    **//
+                    case "delaybeforestarting": DelayBeforeStarting = stf.ReadFloatBlock(STFReader.UNITS.Time, 0.0f); break;
                     default:
+                        
+
                         end = true;
                         break;
                 }
@@ -909,6 +952,46 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
 
         public void Update(float elapsedClockSeconds)
         {
+            //** AESS   **//
+            //** AESS Management (US Type, single prime mover, not leading in MU. Doesn't apply to Traxx DE style multiengine loco)
+            if (locomotive.AbsSpeedMpS == 0) TimeSinceStop += elapsedClockSeconds; else TimeSinceStop = 0;
+
+            if (AESSEnabled == true)
+            {
+                if ((AESSEquiped == true) && (locomotive.DPUSet == true) && ((this.DieselSerie == 0) || (this.DieselSerie == 2)) && locomotive.CompressorIsOn == false)
+                {
+                    if ((locomotive.Direction == Direction.N) && (AESSCoolingLowTemp < DieselTemperatureDeg) && (AESSMainResLowPressure < locomotive.MainResPressurePSI) &&
+                        (TimeSinceStop > AESSDelayBeforeShutdown) && (locomotive.BrakeSystem.GetCylPressurePSI() > 1.0f)) //!=Brakes.MSTS.AirSinglePipe.ValveState.Release))
+                    {
+                        this.Stop();
+                    }
+                    else
+                    {
+                        if (this.EngineStatus == DieselEngine.Status.Stopped)
+                        {
+                            this.Start();
+                            TimeSinceStop = 0;
+                        }
+                    }
+                }
+
+                //** MultiEngine Diesel, with AESS (Traxx DE multiengine)
+                if (((locomotive.FilteredMotiveForceN > AESSForceForStartup) && (AESSForceForStartup != 0)) || ((locomotive.ThrottlePercent > AESSThrottleForStartup) && (AESSThrottleForStartup != 0)))
+                {
+                    if (EngineStatus != DieselEngine.Status.Running)
+                    {
+                        this.Start();
+                        TimeSinceAESSConditionsOK = 0;
+                    }
+                }
+                else
+                {
+                    TimeSinceAESSConditionsOK += elapsedClockSeconds;
+                    if ((AESSForceForStartup > 0) && (AESSCoolingLowTemp <= DieselTemperatureDeg) && (TimeSinceAESSConditionsOK > AESSDelayBeforeShutdown)) this.Stop();
+                }
+            }
+            //** END OF AESS    **//
+
             if (EngineStatus == DieselEngine.Status.Running)
                 DemandedThrottlePercent = locomotive.ThrottlePercent;
             else
@@ -1018,14 +1101,24 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
 
             if (EngineStatus == Status.Starting)
             {
-                if ((RealRPM > (0.9f * StartingRPM)) && (RealRPM < StartingRPM))
+                DelaySinceStartingOrder += elapsedClockSeconds;
+                if (DelayBeforeStarting < DelaySinceStartingOrder)
                 {
-                    DemandedRPM = 1.1f * StartingConfirmationRPM;
-                    ExhaustColor = ExhaustTransientColor;
-                    ExhaustParticles = (MaxExhaust - InitialExhaust) / (0.5f * StartingRPM - StartingRPM) * (RealRPM - 0.5f * StartingRPM) + InitialExhaust;
+                    if (DemandedRPM == 0) DemandedRPM = StartingRPM;
+                    
+                    if ((RealRPM > (0.9f * StartingRPM)) && (RealRPM < StartingRPM))
+                    {
+                        DemandedRPM = 1.1f * StartingConfirmationRPM;
+                        ExhaustColor = ExhaustTransientColor;
+                        ExhaustParticles = (MaxExhaust - InitialExhaust) / (0.5f * StartingRPM - StartingRPM) * (RealRPM - 0.5f * StartingRPM) + InitialExhaust;
+                    }
+                    if ((RealRPM > StartingConfirmationRPM))// && (RealRPM < 0.9f * IdleRPM))
+                    {
+                        EngineStatus = Status.Running;
+                        DelaySinceStartingOrder = 0;
+                    }
+
                 }
-                if ((RealRPM > StartingConfirmationRPM))// && (RealRPM < 0.9f * IdleRPM))
-                    EngineStatus = Status.Running;
             }
 
             if ((EngineStatus != Status.Starting) && (RealRPM == 0f))
@@ -1138,7 +1231,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
             {
                 case Status.Stopped:
                 case Status.Stopping:
-                    DemandedRPM = StartingRPM;
+//                    DemandedRPM = StartingRPM;
                     EngineStatus = Status.Starting;
                     break;
                 default:

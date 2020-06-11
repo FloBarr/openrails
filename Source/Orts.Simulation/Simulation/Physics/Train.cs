@@ -1554,8 +1554,11 @@ namespace Orts.Simulation.Physics
         /// Update train 
         /// <\summary>
 
+
         public virtual void Update(float elapsedClockSeconds, bool auxiliaryUpdate = true)
         {
+
+            //** End Of AESS & MU add   **//
             if (!auxiliaryUpdate)
                 FormationReversed = false;
             if (IsActualPlayerTrain && Simulator.ActiveMovingTable != null)

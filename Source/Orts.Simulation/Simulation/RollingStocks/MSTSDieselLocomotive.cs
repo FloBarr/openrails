@@ -110,6 +110,9 @@ namespace Orts.Simulation.RollingStocks
         /// </summary>        
         float partialFuelConsumption = 0;
 
+        public bool DPUSet = false;
+        public bool AESSEquiped = false;
+
         private const float GearBoxControllerBoost = 1; // Slow boost to enable easy single gear up/down commands
 
         //** New UpdateMotiveForce parameters   **//
@@ -1505,20 +1508,38 @@ namespace Orts.Simulation.RollingStocks
 
         public void TogglePlayerEngine()
         {
+            int DieselCount = 0;
+
             if (ThrottlePercent < 1)
             {
-                //                    PowerOn = !PowerOn;
-                if (DieselEngines[0].EngineStatus == DieselEngine.Status.Stopped)
+                foreach (var car in Train.Cars)
                 {
-                    DieselEngines[0].Start();
-                    SignalEvent(Event.EnginePowerOn); // power on sound hook
+                    var mstsDieselLocomotive = car as MSTSDieselLocomotive;
+                    if (mstsDieselLocomotive != null && mstsDieselLocomotive.AcceptMUSignals)
+                    {
+
+                        foreach (DieselEngine de in mstsDieselLocomotive.DieselEngines)
+                        {
+                            if (((de.DieselSerie == 0) && (DieselCount == 0)) || (de.DieselSerie == 1))
+                            {
+                                if (de.DieselSerie == 0) DieselCount++;
+
+                                //                    PowerOn = !PowerOn;
+                                if (de.EngineStatus == DieselEngine.Status.Stopped)
+                                {
+                                    de.Start();
+                                    SignalEvent(Event.EnginePowerOn); // power on sound hook
+                                }
+                                if (de.EngineStatus == DieselEngine.Status.Running)
+                                {
+                                    de.Stop();
+                                    SignalEvent(Event.EnginePowerOff); // power off sound hook
+                                }
+                                Simulator.Confirmer.Confirm(CabControl.PlayerDiesel, DieselEngines.PowerOn ? CabSetting.On : CabSetting.Off);
+                            }
+                        }
+                    }
                 }
-                if (DieselEngines[0].EngineStatus == DieselEngine.Status.Running)
-                {
-                    DieselEngines[0].Stop();
-                    SignalEvent(Event.EnginePowerOff); // power off sound hook
-                }
-                Simulator.Confirmer.Confirm(CabControl.PlayerDiesel, DieselEngines.PowerOn ? CabSetting.On : CabSetting.Off);
             }
             else
             {

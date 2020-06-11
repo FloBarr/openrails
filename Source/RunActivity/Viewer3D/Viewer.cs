@@ -88,6 +88,12 @@ namespace Orts.Viewer3D
         public SwitchWindow SwitchWindow { get; private set; } // F8 window
         public TrainOperationsWindow TrainOperationsWindow { get; private set; } // F9 window
         public CarOperationsWindow CarOperationsWindow { get; private set; } // F9 sub-window for car operations
+
+        //** AESS-DMU Add       **//
+        public EnginesOperationsWindow EnginesOperationsWindow { get; private set; } // F9 sub-window for car operations
+        public LocomotiveOperationsWindow LocomotiveOperationsWindow { get; private set; } // F9 sub-window for car operations
+        //** End of AESS-DMU Add **//
+
         public NextStationWindow NextStationWindow { get; private set; } // F10 window
         public CompassWindow CompassWindow { get; private set; } // 0 window
         public TracksDebugWindow TracksDebugWindow { get; private set; } // Control-Alt-F6
@@ -419,6 +425,10 @@ namespace Orts.Viewer3D
             SwitchWindow = new SwitchWindow(WindowManager);
             TrainOperationsWindow = new TrainOperationsWindow(WindowManager);
             CarOperationsWindow = new CarOperationsWindow(WindowManager);
+
+            EnginesOperationsWindow = new EnginesOperationsWindow(WindowManager);
+            LocomotiveOperationsWindow = new LocomotiveOperationsWindow(WindowManager);
+
             NextStationWindow = new NextStationWindow(WindowManager);
             CompassWindow = new CompassWindow(WindowManager);
             TracksDebugWindow = new TracksDebugWindow(WindowManager);
@@ -961,7 +971,36 @@ namespace Orts.Viewer3D
                 }
             }
             if (UserInput.IsPressed(UserCommand.DisplaySwitchWindow)) if (UserInput.IsDown(UserCommand.DisplayNextWindowTab)) SwitchWindow.TabAction(); else SwitchWindow.Visible = !SwitchWindow.Visible;
-            if (UserInput.IsPressed(UserCommand.DisplayTrainOperationsWindow)) if (UserInput.IsDown(UserCommand.DisplayNextWindowTab)) TrainOperationsWindow.TabAction(); else { TrainOperationsWindow.Visible = !TrainOperationsWindow.Visible; if (!TrainOperationsWindow.Visible) CarOperationsWindow.Visible = false; }
+            if (UserInput.IsPressed(UserCommand.DisplayTrainOperationsWindow))
+            {
+                if (UserInput.IsDown(UserCommand.DisplayNextWindowTab))
+                {
+                    TrainOperationsWindow.TabAction();
+                }
+                else
+                {
+                    if ((TrainOperationsWindow.Visible == false) && (EnginesOperationsWindow.Visible == false))
+                    {
+                        TrainOperationsWindow.Visible = true;
+                        EnginesOperationsWindow.Visible = false;
+                    }
+
+                    else if ((TrainOperationsWindow.Visible == true) && (EnginesOperationsWindow.Visible == false))
+                    {
+                        TrainOperationsWindow.Visible = false;
+                        EnginesOperationsWindow.Visible = true;
+                    }
+                    else
+                    {
+                        CarOperationsWindow.Visible = false;
+                        EnginesOperationsWindow.Visible = false;
+                        if (LocomotiveOperationsWindow.Visible == true) LocomotiveOperationsWindow.Visible = false;
+                        TrainOperationsWindow.Visible = false;
+
+                    }
+
+                }
+            }
             if (UserInput.IsPressed(UserCommand.DisplayNextStationWindow)) if (UserInput.IsDown(UserCommand.DisplayNextWindowTab)) NextStationWindow.TabAction(); else NextStationWindow.Visible = !NextStationWindow.Visible;
             if (UserInput.IsPressed(UserCommand.DisplayCompassWindow)) if (UserInput.IsDown(UserCommand.DisplayNextWindowTab)) CompassWindow.TabAction(); else CompassWindow.Visible = !CompassWindow.Visible;
             if (UserInput.IsPressed(UserCommand.DebugTracks)) if (UserInput.IsDown(UserCommand.DisplayNextWindowTab)) TracksDebugWindow.TabAction(); else TracksDebugWindow.Visible = !TracksDebugWindow.Visible;
