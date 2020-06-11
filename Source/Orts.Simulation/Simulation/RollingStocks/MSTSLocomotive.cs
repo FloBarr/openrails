@@ -4035,65 +4035,77 @@ namespace Orts.Simulation.RollingStocks
                         {
                             if ((mstsDieselLocomotive.DieselEngines.Count > 1))
                             {
+                                //** On leading locomotive, shutdown of 2nd diesel, if available and defined as a helper (or not defined)        **//
                                 for (int i = 1; i < mstsDieselLocomotive.DieselEngines.Count; i++)
                                 {
-                                    if (!onOffFound)
+                                    float wMaxPower = 1000; //** Excluding very low power Diesel, considered as APU, waiting for a better solution     **//
+                                    if ((mstsDieselLocomotive.DieselEngines[i].MaximumDieselPowerW > wMaxPower) && ((mstsDieselLocomotive.DieselEngines[i].DieselSerie == 0) || (mstsDieselLocomotive.DieselEngines[i].DieselSerie == 2)))
                                     {
-                                        onOffFound = true;
-                                        if (mstsDieselLocomotive.DieselEngines[i].EngineStatus == DieselEngine.Status.Stopped)
+                                        if (!onOffFound)
                                         {
-                                            mstsDieselLocomotive.DieselEngines[i].Start();
-                                            powerOn = true;
+                                            onOffFound = true;
+                                            if (mstsDieselLocomotive.DieselEngines[i].EngineStatus == DieselEngine.Status.Stopped)
+                                            {
+                                                mstsDieselLocomotive.DieselEngines[i].Start();
+                                                powerOn = true;
+                                            }
+                                            if (mstsDieselLocomotive.DieselEngines[i].EngineStatus == DieselEngine.Status.Running)
+                                            {
+                                                mstsDieselLocomotive.DieselEngines[i].Stop();
+                                            }
                                         }
-                                        if (mstsDieselLocomotive.DieselEngines[i].EngineStatus == DieselEngine.Status.Running)
+                                        else
                                         {
-                                            mstsDieselLocomotive.DieselEngines[i].Stop();
+                                            if (mstsDieselLocomotive.DieselEngines[i].EngineStatus == DieselEngine.Status.Stopped && powerOn)
+                                            {
+                                                mstsDieselLocomotive.DieselEngines[i].Start();
+                                            }
+                                            if (mstsDieselLocomotive.DieselEngines[i].EngineStatus == DieselEngine.Status.Running && !powerOn)
+                                            {
+                                                mstsDieselLocomotive.DieselEngines[i].Stop();
+                                            }
                                         }
                                     }
-                                    else
-                                    {
-                                        if (mstsDieselLocomotive.DieselEngines[i].EngineStatus == DieselEngine.Status.Stopped && powerOn)
-                                        {
-                                            mstsDieselLocomotive.DieselEngines[i].Start();
-                                        }
-                                        if (mstsDieselLocomotive.DieselEngines[i].EngineStatus == DieselEngine.Status.Running && !powerOn)
-                                        {
-                                            mstsDieselLocomotive.DieselEngines[i].Stop();
-                                        }
-                                    }
+                                    if (mstsDieselLocomotive.DieselEngines[1].EngineStatus == DieselEngine.Status.Stopping)
+                                        mstsDieselLocomotive.SignalEvent(Event.SecondEnginePowerOff);
+                                    else if (mstsDieselLocomotive.DieselEngines[1].EngineStatus == DieselEngine.Status.Starting)
+                                        mstsDieselLocomotive.SignalEvent(Event.SecondEnginePowerOn);
+
                                 }
-                                if (mstsDieselLocomotive.DieselEngines[1].EngineStatus == DieselEngine.Status.Stopping)
-                                    mstsDieselLocomotive.SignalEvent(Event.SecondEnginePowerOff);
-                                else if (mstsDieselLocomotive.DieselEngines[1].EngineStatus == DieselEngine.Status.Starting)
-                                    mstsDieselLocomotive.SignalEvent(Event.SecondEnginePowerOn);
                             }
                         }
+                        //** Other locos than leading one                **//
                         else
                         {
                             foreach (DieselEngine de in mstsDieselLocomotive.DieselEngines)
                             {
-                                if (!onOffFound)
-                                {
-                                    if (de.EngineStatus == DieselEngine.Status.Stopped)
-                                    {
-                                        de.Start();
-                                        powerOn = true;
-                                    }
-                                    if (de.EngineStatus == DieselEngine.Status.Running)
-                                    {
-                                        de.Stop();
-                                    }
-                                }
-                                else
+                                float wMaxPower = 1000; //** Excluding very low power Diesel, considered as APU, waiting for a better solution     **//
+                                if ((de.MaximumDieselPowerW > wMaxPower) && ((de.DieselSerie == 0) || (de.DieselSerie == 2)))
                                 {
 
-                                    if (de.EngineStatus == DieselEngine.Status.Stopped && powerOn)
+                                    if (!onOffFound)
                                     {
-                                        de.Start();
+                                        if (de.EngineStatus == DieselEngine.Status.Stopped)
+                                        {
+                                            de.Start();
+                                            powerOn = true;
+                                        }
+                                        if (de.EngineStatus == DieselEngine.Status.Running)
+                                        {
+                                            de.Stop();
+                                        }
                                     }
-                                    if (de.EngineStatus == DieselEngine.Status.Running && !powerOn)
+                                    else
                                     {
-                                        de.Stop();
+
+                                        if (de.EngineStatus == DieselEngine.Status.Stopped && powerOn)
+                                        {
+                                            de.Start();
+                                        }
+                                        if (de.EngineStatus == DieselEngine.Status.Running && !powerOn)
+                                        {
+                                            de.Stop();
+                                        }
                                     }
                                 }
                             }
