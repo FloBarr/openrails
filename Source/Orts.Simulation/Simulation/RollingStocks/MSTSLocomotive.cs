@@ -3931,12 +3931,34 @@ namespace Orts.Simulation.RollingStocks
                                 }
                                 data = DynamicBrakeForceN / MaxDynamicBrakeForceN * rangeFactor;
                             }
+
+                            //** Ammeter with new dc motor traction
+                            if (this is MSTSDieselLocomotive)
+                            {
+                                if ((this as MSTSDieselLocomotive).HasDCMotor == true)
+                                {
+                                    data = (this as MSTSDieselLocomotive).DisplayedAmperage;
+                                    
+                                }
+                            }
+
                             if (direction == 1)
                                 data = -data;
                             if (cvc.ControlType == CABViewControlTypes.AMMETER_ABS) data = Math.Abs(data);
                             break;
                         }
                         data = this.MotiveForceN / MaxForceN * MaxCurrentA;
+
+                        //** Ammeter with new dc motor traction
+                        if (this is MSTSDieselLocomotive)
+                        {
+                            if ((this as MSTSDieselLocomotive).HasDCMotor == true)
+                            {
+                                data = (this as MSTSDieselLocomotive).DisplayedAmperage;
+                                
+                            }
+                        }
+
                         if (cvc.ControlType == CABViewControlTypes.AMMETER_ABS) data = Math.Abs(data);
                         break;
                     }
@@ -4550,6 +4572,14 @@ namespace Orts.Simulation.RollingStocks
                 case CABViewControlTypes.ORTS_TCS47:
                 case CABViewControlTypes.ORTS_TCS48:
                     data = TrainControlSystem.CabDisplayControls[(int)cvc.ControlType - (int)CABViewControlTypes.ORTS_TCS1];
+                    break;
+                case CABViewControlTypes.ORTS_GENERATOR_VOLTAGE:
+                    if ((this as MSTSDieselLocomotive).HasDCMotor == true)
+                    {
+                        data = (this as MSTSDieselLocomotive).Voltage;
+
+                    }
+
                     break;
 
                 default:
