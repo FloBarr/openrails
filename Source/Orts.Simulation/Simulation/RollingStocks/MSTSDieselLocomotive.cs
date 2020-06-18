@@ -130,6 +130,7 @@ namespace Orts.Simulation.RollingStocks
         public bool HasDCMotor = false;
 
         public float GeneratorVoltage = 0;
+        public float GeneratorLowVoltage = 0;
         public int FieldChangeNumber = 0;
         public List<float> FieldChangeSpeedUp = new List<float>();
         public List<float> FieldChangeSpeedDown = new List<float>();
@@ -214,6 +215,7 @@ namespace Orts.Simulation.RollingStocks
 
                 //** For test, new UpdateMotiveForce. Would be better in MSTSLocomotive
                 case "engine(ortsdcmotorgeneratorvoltage": GeneratorVoltage = stf.ReadFloatBlock(STFReader.UNITS.Voltage, 1500); break;
+                case "engine(ortsdcmotorgeneratorlowvoltage": GeneratorLowVoltage = stf.ReadFloatBlock(STFReader.UNITS.Voltage, 0); break;
                 case "engine(ortsdcmotorfieldchangenumber": FieldChangeNumber = stf.ReadIntBlock(0); break;
                 case "engine(ortsdcmotorfieldspeedup":
                     temp = stf.ReadItem();
@@ -522,6 +524,7 @@ namespace Orts.Simulation.RollingStocks
 
             HasDCMotor = locoCopy.HasDCMotor;
             GeneratorVoltage = locoCopy.GeneratorVoltage;
+            GeneratorLowVoltage = locoCopy.GeneratorLowVoltage;
             FieldChangeNumber = locoCopy.FieldChangeNumber;
             FieldChangeSpeedUp = locoCopy.FieldChangeSpeedUp;
             FieldChangeSpeedDown = locoCopy.FieldChangeSpeedDown;
@@ -725,7 +728,7 @@ namespace Orts.Simulation.RollingStocks
             if ((ThrottlePercent > 0))  //&&(Direction!= Direction.N))
             {
                 //** To do: manage voltage of generator, different from a loco to another   **//
-                DemandedVoltage = (FullVoltage * (ThrottlePercent / 100));
+                DemandedVoltage = GeneratorLowVoltage+((FullVoltage-GeneratorLowVoltage) * (ThrottlePercent / 100));
 
                 //** Increasing Generator Voltage smoothly  **//
                 if (Voltage < DemandedVoltage)
@@ -1050,6 +1053,7 @@ namespace Orts.Simulation.RollingStocks
 
             if (HasDCMotor == true)
             {
+                //** Preparing to use DC Motor update    **//
                 if (MaxForceN > 0 && MaxContinuousForceN > 0 && PowerReduction < 1)
                 {
                     NewMotiveForceN *= 1 - (MaxForceN - MaxContinuousForceN) / (MaxForceN * MaxContinuousForceN) * AverageForceN * (1 - PowerReduction);
@@ -1062,6 +1066,7 @@ namespace Orts.Simulation.RollingStocks
             }
             else
             {
+                //** Or Legacy                          **//
                 OpenRailsMotiveForceN *= 1 - (MaxForceN - MaxContinuousForceN) / (MaxForceN * MaxContinuousForceN) * AverageForceN * (1 - PowerReduction);
                 float w = (ContinuousForceTimeFactor - elapsedClockSeconds) / ContinuousForceTimeFactor;
                 if (w < 0)
@@ -1069,6 +1074,10 @@ namespace Orts.Simulation.RollingStocks
                 AverageForceN = w * AverageForceN + (1 - w) * TractiveForceN;
                 AverageForceN = w * AverageForceN + (1 - w) * OpenRailsMotiveForceN;
             }
+            //** Forcing MotiveForceN to legacy          **//
+//            MotiveForceN = OpenRailsMotiveForceN;
+            TractiveForceN = NewMotiveForceN;
+
             DisplayedMotiveForceN = TractiveForceN;
         }
 

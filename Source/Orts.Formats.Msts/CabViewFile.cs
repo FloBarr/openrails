@@ -236,6 +236,8 @@ namespace Orts.Formats.Msts
         ORTS_TCS48,
         ORTS_ETCS,
 
+        ORTS_GENERATOR_VOLTAGE,
+
         // Further CabViewControlTypes must be added above this line, to avoid their malfunction in 3DCabs
         EXTERNALWIPERS,
         LEFTDOOR,
