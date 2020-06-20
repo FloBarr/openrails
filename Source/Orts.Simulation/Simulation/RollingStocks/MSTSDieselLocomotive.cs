@@ -131,10 +131,12 @@ namespace Orts.Simulation.RollingStocks
 
         public float GeneratorVoltage = 0;
         public float GeneratorLowVoltage = 0;
-        public int FieldChangeNumber = 0;
-        public List<float> FieldChangeSpeedUp = new List<float>();
-        public List<float> FieldChangeSpeedDown = new List<float>();
-        public List<float> FieldChangeValues = new List<float>();
+        private int FieldChangeNumber = 0;
+        private List<float> FieldChangeSpeedUp = new List<float>();
+        private List<float> FieldChangeSpeedDown = new List<float>();
+        private List<float> FieldChangeNotch = new List<float>();
+        private List<float> FieldChangeValues = new List<float>();
+        private bool FieldChangeByNotch = false;
         public float GearingReduction = 0;
         public float DCMotorInternalR = 0.25f;
         public float DCMotorInductorR = 0.25f;
@@ -265,6 +267,24 @@ namespace Orts.Simulation.RollingStocks
                         stf.SkipRestOfBlock();
                     }
                     break;
+                case "engine(ortsdcmotorfieldnotch":
+                    temp = stf.ReadItem();
+                    if (temp == ")")
+                    {
+                        stf.StepBackOneItem();
+                    }
+                    if (temp == "(")
+                    {
+                        FieldChangeNotch.Clear();
+                        for (int i = 0; i < FieldChangeNumber; i++)
+                        {
+                            FieldChangeNotch.Add(stf.ReadFloat(STFReader.UNITS.None, 10.0f));
+                        }
+                        FieldChangeByNotch = true;
+                        stf.SkipRestOfBlock();
+                    }
+                    break;
+         
                 case "engine(ortsdcmotorgearingreduction": GearingReduction = stf.ReadFloatBlock(STFReader.UNITS.None, 1.0f); break;
                 case "engine(ortsdcmotorhasdcmotor": HasDCMotor = stf.ReadBoolBlock(false); break;
                 case "engine(ortsdcmotornumber": DCMotorNumber = stf.ReadIntBlock(1); break;
@@ -528,7 +548,9 @@ namespace Orts.Simulation.RollingStocks
             FieldChangeNumber = locoCopy.FieldChangeNumber;
             FieldChangeSpeedUp = locoCopy.FieldChangeSpeedUp;
             FieldChangeSpeedDown = locoCopy.FieldChangeSpeedDown;
+            FieldChangeNotch = locoCopy.FieldChangeNotch;
             FieldChangeValues = locoCopy.FieldChangeValues;
+            FieldChangeByNotch = locoCopy.FieldChangeByNotch;
             GearingReduction = locoCopy.GearingReduction;
             DCMotorNumber = locoCopy.DCMotorNumber;
             DCMotorInternalR = locoCopy.DCMotorInternalR;
@@ -722,14 +744,31 @@ namespace Orts.Simulation.RollingStocks
             float PrevIInductor = IInductor;
 
             float ActualFieldChangeFactor = 1;
+            float WantedNotch = 0;
+            float VirtualPercent = 0f;
+            float NotchCount =0;
 
             string ExportString;
 
+            //** To do: manage voltage of generator, different from a loco to another   **//
+            //** If field diverting is set for notches                                  **//
+            if (FieldChangeByNotch == true)
+            {
+                NotchCount = this.ThrottleController.NotchCount();
+                VirtualPercent = (float)(NotchCount / (NotchCount - FieldChangeNumber));
+                WantedNotch = VirtualPercent * (ThrottlePercent / 100);
+                if (WantedNotch > 1) WantedNotch = 1;
+
+                DemandedVoltage = GeneratorLowVoltage + ((FullVoltage - GeneratorLowVoltage) * WantedNotch);
+                
+            }
+            else
+            {
+                DemandedVoltage = GeneratorLowVoltage + ((FullVoltage - GeneratorLowVoltage) * (ThrottlePercent / 100));
+            }
+
             if ((ThrottlePercent > 0))  //&&(Direction!= Direction.N))
             {
-                //** To do: manage voltage of generator, different from a loco to another   **//
-                DemandedVoltage = GeneratorLowVoltage+((FullVoltage-GeneratorLowVoltage) * (ThrottlePercent / 100));
-
                 //** Increasing Generator Voltage smoothly  **//
                 if (Voltage < DemandedVoltage)
                 {
@@ -759,25 +798,45 @@ namespace Orts.Simulation.RollingStocks
                 //** Near to demanded Voltage, setting it exactly, avoiding oscillations    **//
                 if ((Math.Abs(DemandedVoltage - Voltage) * elapsedClockSeconds) < (5 * elapsedClockSeconds)) Voltage = DemandedVoltage;
 
-                //Voltage = FullVoltage * (float)ModThrottle ;   //** Increasing voltage between 0 and full voltage, set by throttle, on the non shunting zone   **//
+
                 ShuntedR = DCMotorInductorR;
-                if (Train.AccelerationMpSpS.Value > 0)
+                //** Calculating Field change factor            **//
+                //** Field change is linked to Speed            **//
+                if (FieldChangeByNotch==false)
                 {
-                    for (int i = 0; i < FieldChangeNumber; i++)
+                    //** And accelerating                       **//
+                    if (Train.AccelerationMpSpS.Value > 0)
                     {
-                        if (AbsSpeedMpS > FieldChangeSpeedUp[i])
+                        for (int i = 0; i < FieldChangeNumber; i++)
                         {
-                            ActualFieldChangeFactor = FieldChangeValues[i];
-                            ShuntedR = DCMotorInductorR * ActualFieldChangeFactor;
+                            if (AbsSpeedMpS > FieldChangeSpeedUp[i])
+                            {
+                                ActualFieldChangeFactor = FieldChangeValues[i];
+                                ShuntedR = DCMotorInductorR * ActualFieldChangeFactor;
+                            }
+                        }
+
+                    }
+                    //** Or decelerating                        **//
+                    else
+                    {
+                        for (int i = 0; i < FieldChangeNumber; i++)
+                        {
+                            if (AbsSpeedMpS > FieldChangeSpeedDown[i])
+                            {
+                                ActualFieldChangeFactor = FieldChangeValues[i];
+                                ShuntedR = DCMotorInductorR * ActualFieldChangeFactor;
+                            }
                         }
                     }
-
                 }
+                //** Linked to Notch                            **//
                 else
                 {
+                    ActualFieldChangeFactor = 1;
                     for (int i = 0; i < FieldChangeNumber; i++)
                     {
-                        if (AbsSpeedMpS > FieldChangeSpeedDown[i])
+                        if ((int)(FieldChangeNotch[i]*100) <= (ThrottlePercent))
                         {
                             ActualFieldChangeFactor = FieldChangeValues[i];
                             ShuntedR = DCMotorInductorR * ActualFieldChangeFactor;
@@ -790,16 +849,13 @@ namespace Orts.Simulation.RollingStocks
                 {
                     if (IsMetric)
                     {
-                        Simulator.Confirmer.Information("Speed : " + (int)(AbsSpeedMpS * 3.6) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
-                        //                        Trace.WriteLine("Speed : " + (int)(AbsSpeedMpS * 3.6) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
                     }
                     else
                     {
                         Simulator.Confirmer.Information("Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN / 1000) + " lbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
                     }
                 }
-
-                //                        Simulator.Confirmer.Information("Speed : " + (int)(AbsSpeedMpS * 3.6) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp + ", MaxForce:" + (int)(MaxForceN / 1000));
                 UInductor = Voltage - PrevBackEMF;
 
                 if (UInductor > Voltage) UInductor = Voltage;   //** Impossible to have a UInductor > Voltage!      **//
@@ -848,7 +904,7 @@ namespace Orts.Simulation.RollingStocks
                 {
                     if (IsMetric)
                     {
-                        Simulator.Confirmer.Information("Speed =0km/h, De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V (Demanded V:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total)");
+                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total)");
                         //                        Simulator.Confirmer.Information("Speed : " + (int)(AbsSpeedMpS * 3.6) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
                     }
                     else
