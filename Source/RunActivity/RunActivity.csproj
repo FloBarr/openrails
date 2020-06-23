@@ -162,6 +162,7 @@
     <Compile Include="Viewer3D\Processes\GameStateViewer3D.cs" />
     <Compile Include="Viewer3D\Processes\LoaderProcess.cs" />
     <Compile Include="Viewer3D\Processes\RenderProcess.cs" />
+    <Compile Include="Viewer3D\Processes\SharedMemoryProcess.cs" />
     <Compile Include="Viewer3D\Processes\SoundProcess.cs" />
     <Compile Include="Viewer3D\Processes\UpdaterProcess.cs" />
     <Compile Include="Viewer3D\Processes\WatchdogProcess.cs" />
@@ -178,6 +179,7 @@
     <Compile Include="Viewer3D\Scenery.cs" />
     <Compile Include="Viewer3D\Shaders.cs" />
     <Compile Include="Viewer3D\Shapes.cs" />
+    <Compile Include="Viewer3D\SharedMemoryFiles\SharedMemory.cs" />
     <Compile Include="Viewer3D\Signals.cs" />
     <Compile Include="Viewer3D\Sky.cs" />
     <Compile Include="Viewer3D\Sound.cs" />
