@@ -79,6 +79,11 @@ namespace Orts.Viewer3D.Processes
         public WebServerProcess WebServerProcess { get; private set; }
 
         /// <summary>
+        /// Exposes access to the <see cref="SharedMemory"/> for the game.
+        /// </summary>
+        public SharedMemoryProcess SharedMemoryProcess { get; private set; }
+
+        /// <summary>
         /// Gets the current <see cref="GameState"/>, if there is one, or <c>null</c>.
         /// </summary>
         public GameState State { get { return States.Count > 0 ? States.Peek() : null; } }
@@ -100,6 +105,7 @@ namespace Orts.Viewer3D.Processes
             LoaderProcess = new LoaderProcess(this);
             SoundProcess = new SoundProcess(this);
             WebServerProcess = new WebServerProcess(this);
+            SharedMemoryProcess = new SharedMemoryProcess(this);
             States = new Stack<GameState>();
         }
 
@@ -108,6 +114,7 @@ namespace Orts.Viewer3D.Processes
         {
             // At this point, GraphicsDevice is initialized and set up.
             WebServerProcess.Start();
+            SharedMemoryProcess.Start();
             SoundProcess.Start();
             LoaderProcess.Start();
             UpdaterProcess.Start();
@@ -162,6 +169,7 @@ namespace Orts.Viewer3D.Processes
             SoundProcess.Stop();
             // WebServerProcess.Stop(); Again
             WebServerProcess.Stop();
+            SharedMemoryProcess.Stop();
         }
 
         [ThreadName("Render")]
