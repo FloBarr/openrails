@@ -637,6 +637,17 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
         /// Idle RPM
         /// </summary>
         public float IdleRPM;
+
+        /// <summary>
+        /// Idle RPM (save)
+        /// </summary>
+        public float IdleRPMSave;
+
+        /// <summary>
+        /// Heating RPM
+        /// </summary>
+        public float HeatingRPM;
+
         /// <summary>
         /// Maximal RPM
         /// </summary>
@@ -867,6 +878,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                 {
                     case "idlerpm": IdleRPM = stf.ReadFloatBlock(STFReader.UNITS.None, 0); initLevel |= SettingsFlags.IdleRPM; break;
                     case "maxrpm": MaxRPM = stf.ReadFloatBlock(STFReader.UNITS.None, 0);initLevel |= SettingsFlags.MaxRPM; break;
+                    case "heatingrpm": HeatingRPM = stf.ReadFloatBlock(STFReader.UNITS.None, 0); break;
                     case "startingrpm": StartingRPM = stf.ReadFloatBlock(STFReader.UNITS.None, 0); initLevel |= SettingsFlags.StartingRPM; break;
                     case "startingconfirmrpm": StartingConfirmationRPM = stf.ReadFloatBlock(STFReader.UNITS.None, 0); initLevel |= SettingsFlags.StartingConfirmRPM; break;
                     case "changeuprpmps": ChangeUpRPMpS = stf.ReadFloatBlock(STFReader.UNITS.None, 0); initLevel |= SettingsFlags.ChangeUpRPMpS; break;
@@ -949,6 +961,30 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
             ExhaustDecelColor.A = 10;
         }
 
+        public bool IsHeatingRPMCommand()
+        {
+            bool HeatingOnOff = false;
+            if (HeatingRPM != 0)
+            {
+                if (IdleRPM == HeatingRPM) HeatingOnOff = true;
+            }
+            return HeatingOnOff;
+
+        }
+
+        public void HeatingRPMCommand(bool HeatingOnOff)
+        {
+            if (HeatingOnOff)
+            {
+                IdleRPM = HeatingRPM;
+                RPMRange = MaxRPM - IdleRPM;
+            }
+            else
+            {
+                IdleRPM = IdleRPMSave;
+                RPMRange = MaxRPM - IdleRPM;
+            }
+        }
 
         public void Update(float elapsedClockSeconds)
         {
@@ -1011,8 +1047,21 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
 
             if ((ThrottleRPMTab != null) && (EngineStatus == Status.Running))
             {
-                DemandedRPM = ThrottleRPMTab[demandedThrottlePercent];
+                //** Heating of the train                                           **//
+                if ((ThrottleRPMTab != null) && (locomotive.DieselEngines[0].IsHeatingRPMCommand() == true))
+                {
+                    float HeatingDemandedThrottlePercent;
+                    float HeatingPercent = ((HeatingRPM / (IdleRPMSave + MaxRPM)) * 100);
+
+                    HeatingDemandedThrottlePercent = HeatingPercent + (((100 - HeatingPercent) / 100) * demandedThrottlePercent);
+                    DemandedRPM = ThrottleRPMTab[HeatingDemandedThrottlePercent];
+
+
+                }
+                //** No Heating                                                     **//
+                else DemandedRPM = ThrottleRPMTab[demandedThrottlePercent];
             }
+
 
             if (GearBox != null)
             {

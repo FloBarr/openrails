@@ -242,6 +242,9 @@ namespace Orts.Viewer3D.SharedMemoryFiles
             string wAlims = "";
             double wAmperage = 0;
             string wAmperages = "";
+            double wVoltage = 0;
+            string wVoltages = "";
+
             string wNom = viewer.PlayerTrain.Name;
             string wLoco = "";
             string wPatinages = "";
@@ -272,6 +275,7 @@ namespace Orts.Viewer3D.SharedMemoryFiles
                             wEfforts += "-";
                             wEffortsMax += "-";
                             wAmperages += "-";
+                            wVoltages += "-";
                             wPuissances += "-";
                             wPuissancesMax += "-";
                             wPatinages += '-';
@@ -314,9 +318,22 @@ namespace Orts.Viewer3D.SharedMemoryFiles
 
                             //** Amperages  **//
                             wMaxCurrent = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).MaxCurrentA;
-                            wAmperage = Math.Abs(wEffortLoc / wEffortMaxLoc * wMaxCurrent);
+                            if((viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).HasDCMotor==true)
+                            {
+                                wAmperage = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DCMotorNumber* (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DisplayedAmperage;
+                            }
+                            else
+                            {
+                                wAmperage = Math.Abs(wEffortLoc / wEffortMaxLoc * wMaxCurrent);
+                            }
                             wAmperages += Math.Round(Math.Abs(wAmperage), 0);
 
+                            //** Voltages   **//
+                            if ((viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).HasDCMotor == true)
+                            {
+                                wVoltage = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).Voltage;
+                            }
+                            wVoltages+= Math.Round(Math.Abs(wVoltage), 0);
 
                             //** Puissances **//
                             wPuissanceLoc = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DieselEngines[0].OutputPowerW / 1000;
@@ -406,19 +423,20 @@ namespace Orts.Viewer3D.SharedMemoryFiles
                 wPuissances + ';' +                                      //15
                 wPuissancesMax + ';' +
                 wAmperages + ';' +
+                wVoltages + ';' +
                 wFrein + ';' +
-                Math.Round(wLongueur, 0) + ';' +
-                Math.Round(wDistanceSignal, 0) + ';' +                  //20
+                Math.Round(wLongueur, 0) + ';' +                        //20
+                Math.Round(wDistanceSignal, 0) + ';' +                  
                 wAspect + ';' +
                 wOdometrie + ';' +
                 wLoco + ';' +
-                wNom + ';' +
-                wTypes + ';' +                                          //25
+                wNom + ';' +                                            //25
+                wTypes + ';' +
                 wPantographes + ';' +
                 wDJsAutorises + ';' +
                 wDJsFermes + ';' +
-                wAlims + ';' +
-                viewer.PlayerTrain.Cars.Count + ';' +                                       //30
+                wAlims + ';' +                                          //30
+                viewer.PlayerTrain.Cars.Count + ';' +                       
                 wFanaux + ';' +
                 wPatinages + ';' +
                 wEnrayages + ';';
