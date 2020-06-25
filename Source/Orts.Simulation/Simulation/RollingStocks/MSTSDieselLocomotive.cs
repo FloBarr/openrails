@@ -59,6 +59,7 @@ namespace Orts.Simulation.RollingStocks
     public class MSTSDieselLocomotive : MSTSLocomotive
     {
         public float IdleRPM;
+        public float HeatingRPM;
         public float MaxRPM;
         public float MaxRPMChangeRate;
         public float PercentChangePerSec = .2f;
@@ -1483,6 +1484,36 @@ namespace Orts.Simulation.RollingStocks
                     de.GearBox.GearBoxOperation = GearBoxOperation.Automatic;
             }
             base.SwitchToAutopilotControl();
+        }
+
+        private void UpdateElectricalHeat(float elapsedClockSeconds)
+        {
+            int CarCount = 0;
+            bool ElectricHeating = Train.CarElectricHeatOn;
+
+            if (ElectricHeating == true)
+            {
+                if (this.IsLeadLocomotive())
+                {
+                    foreach (var car in Train.Cars)
+                    {
+                        if ((car.WagonType != WagonTypes.Engine) && (car.WagonType != WagonTypes.Tender))
+                        {
+                            CarCount++;
+                        }
+
+                    }
+                    //                   Console.WriteLine(CarCount+" cars to heat");
+                    foreach (var de in this.DieselEngines)
+                    {
+                        if ((de.HeatingRPM != 0) && (de.RealRPM >= (de.HeatingRPM * 0.9)))
+                        {
+                            de.MaximumDieselPowerW -= (CarCount * 40000);
+                        }
+                    }
+                }
+            }
+
         }
 
         protected override void UpdateCarSteamHeat(float elapsedClockSeconds)

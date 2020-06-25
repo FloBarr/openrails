@@ -189,6 +189,9 @@ namespace Orts.Simulation.Physics
         float BoltzmanConstPipeWpM2 = 0.0000000567f; // Boltzman's Constant
         public bool TrainHeatingBoilerInitialised = false;
 
+        // Carriage Electric Heating
+        public bool CarElectricHeatOn = false;    // Is steam heating turned on
+
         // Values for Wind Direction and Speed - needed for wind resistance and lateral force
         public float PhysicsWindDirectionDeg;
         public float PhysicsWindSpeedMpS;

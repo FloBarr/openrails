@@ -676,6 +676,7 @@ namespace Orts.Parsers.Msts
         DieselEngineMaxRPM,
         DieselEngineIdleRPM,
         DieselEngineStallRPM,
+        DieselEngineHeatingRPM,
         DieselEngineSpeedOfMaxTractiveEffort,
         DieselEngineMaxRPMChangeRate,
 
