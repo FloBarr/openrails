@@ -4165,6 +4165,7 @@ namespace Orts.Simulation.RollingStocks
                 case Event._HeadlightDim: { Headlight = 1; break; }
                 case Event._HeadlightOn: { Headlight = 2; break; }
 
+      
                 case Event.CompressorOn: { CompressorIsOn = true; break; }
                 case Event.CompressorOff: { CompressorIsOn = false; break; }
 

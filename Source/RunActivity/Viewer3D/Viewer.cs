@@ -567,6 +567,7 @@ namespace Orts.Viewer3D
             {
                 TogglePlayerEngineCommand.Receiver = (MSTSDieselLocomotive)PlayerLocomotive;
                 VacuumExhausterCommand.Receiver = (MSTSDieselLocomotive)PlayerLocomotive;
+                ToggleElectricHeatingCommand.Receiver = (MSTSDieselLocomotive)PlayerLocomotive;
             }
 
             ImmediateRefillCommand.Receiver = (MSTSLocomotiveViewer)PlayerLocomotiveViewer;

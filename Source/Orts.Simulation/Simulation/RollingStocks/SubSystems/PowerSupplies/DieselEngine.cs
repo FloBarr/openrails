@@ -647,6 +647,8 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
         /// Heating RPM
         /// </summary>
         public float HeatingRPM;
+        
+        public int HeatingRPMCalls=0;
 
         /// <summary>
         /// Maximal RPM
@@ -961,16 +963,20 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
 
         public void HeatingRPMCommand(bool HeatingOnOff)
         {
-            if (HeatingOnOff)
+            HeatingRPMCalls++;
+            if (HeatingOnOff==true)
             {
+                Trace.TraceInformation(HeatingRPMCalls+" : Heating set to " + HeatingRPM);
                 IdleRPM = HeatingRPM;
                 RPMRange = MaxRPM - IdleRPM;
             }
             else
             {
+                Trace.TraceInformation(HeatingRPMCalls + " : Heating removed");
                 IdleRPM = IdleRPMSave;
                 RPMRange = MaxRPM - IdleRPM;
             }
+            
         }
 
         public void Update(float elapsedClockSeconds)
@@ -1037,13 +1043,14 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                 //** Heating of the train                                           **//
                 if ((ThrottleRPMTab != null) && (locomotive.DieselEngines[0].IsHeatingRPMCommand() == true))
                 {
+
                     float HeatingDemandedThrottlePercent;
                     float HeatingPercent = ((HeatingRPM / (IdleRPMSave + MaxRPM)) * 100);
 
                     HeatingDemandedThrottlePercent = HeatingPercent + (((100 - HeatingPercent) / 100) * demandedThrottlePercent);
                     DemandedRPM = ThrottleRPMTab[HeatingDemandedThrottlePercent];
 
-
+//                    Trace.TraceInformation("Heating RPM : " + DemandedRPM);
                 }
                 //** No Heating                                                     **//
                 else DemandedRPM = ThrottleRPMTab[demandedThrottlePercent];

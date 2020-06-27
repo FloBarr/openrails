@@ -1597,4 +1597,30 @@ namespace Orts.Common
         }
     }
 
+    [Serializable()]
+    public sealed class ToggleElectricHeatingCommand : Command
+    {
+    
+    public static MSTSDieselLocomotive Receiver { get; set; }
+
+        public ToggleElectricHeatingCommand(CommandLog log)
+            : base(log)
+        {
+            Redo();
+        }
+
+        public override void Redo()
+        {
+            if (Receiver != null && Receiver.Train != null)
+            {
+                Receiver.ToggleElectricHeatingCommand();
+            }
+            // Report();
+        }
+
+        public override string ToString()
+        {
+            return base.ToString();
+        }
+    }
 }

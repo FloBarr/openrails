@@ -26,6 +26,7 @@ using Orts.Simulation.Physics;
 using Orts.Simulation.RollingStocks;
 using ORTS.Common;
 using ORTS.Common.Input;
+using System.Diagnostics;
 
 namespace Orts.Viewer3D.RollingStock
 {
@@ -76,6 +77,7 @@ namespace Orts.Viewer3D.RollingStock
         {
             UserInputCommands.Add(UserCommand.ControlVacuumExhausterPressed, new Action[] { () => new VacuumExhausterCommand(Viewer.Log, false), () => new VacuumExhausterCommand(Viewer.Log, true) });
             UserInputCommands.Add(UserCommand.ControlDieselPlayer, new Action[] { Noop, () => new TogglePlayerEngineCommand(Viewer.Log) });
+            UserInputCommands.Add(UserCommand.ControlElectricHeating, new Action[] { Noop, () => new ToggleElectricHeatingCommand(Viewer.Log) });
             base.InitializeUserInputCommands();
         }
 
