@@ -179,6 +179,7 @@ namespace Orts.Viewer3D.RollingStock
             UserInputCommands.Add(UserCommand.ControlDieselHelper, new Action[] { Noop, () => new ToggleHelpersEngineCommand(Viewer.Log) });
             UserInputCommands.Add(UserCommand.ControlGeneric1, new Action[] { () => new TCSCommand(Viewer.Log, false, 0), () => new TCSCommand(Viewer.Log, true, 0) });
             UserInputCommands.Add(UserCommand.ControlGeneric2, new Action[] { () => new TCSCommand(Viewer.Log, false, 1), () => new TCSCommand(Viewer.Log, true, 1) });
+
             base.InitializeUserInputCommands();
         }
 
@@ -1791,7 +1792,6 @@ namespace Orts.Viewer3D.RollingStock
             switch (ControlDiscrete.ControlType)
             {
                 case CABViewControlTypes.TRAIN_BRAKE:
-                    Console.WriteLine("Frein: Commande type "+ ControlDiscrete.ControlStyle);
                     //** Impulsion style brake lever                                                               **//
                     if ((ControlDiscrete.ControlStyle == CABViewControlStyles.IMPULSE))
                     {
@@ -1848,7 +1848,6 @@ namespace Orts.Viewer3D.RollingStock
                     //** Lever is set on "+" to increase power, "-" to decrease. These positions are unstable       **//
                     //** When released, the lever come back to a stable intermediate position, holding throttle     **//
                     //** Throttle set to 0 put the lever on a 0 pos                                                 **//
-                    Console.WriteLine("Mpt: Commande type " + ControlDiscrete.ControlStyle);
                     if (ControlDiscrete.ControlStyle == CABViewControlStyles.IMPULSE)
                     {
 
@@ -1954,7 +1953,6 @@ namespace Orts.Viewer3D.RollingStock
                         }
 
                         //                        index = PercentToIndex(DataTemp);
-                        Console.WriteLine("MPT Pos {0} ", DataCP);
 
                         break;
                     }

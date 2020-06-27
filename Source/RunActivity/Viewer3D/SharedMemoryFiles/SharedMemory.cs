@@ -169,7 +169,7 @@ namespace Orts.Viewer3D.SharedMemoryFiles
                 //** not usefull to run quickly, 10 updates per second are ok                   **//
                 Thread.Sleep(100);
                 MessageToSend = GenerateMessage();
-                Trace.WriteLine(MessageToSend);
+//                Trace.WriteLine(MessageToSend);
                 UpdateSharedMemory(MessageToSend);
             }
         }

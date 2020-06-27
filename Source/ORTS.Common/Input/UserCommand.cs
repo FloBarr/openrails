@@ -160,6 +160,9 @@
         [GetString("Control Diesel Helper")] ControlDieselHelper,
         [GetString("Control Headlight Increase")] ControlHeadlightIncrease,
         [GetString("Control Headlight Decrease")] ControlHeadlightDecrease,
+        //** Added for test: Electric heating
+        [GetString("Control Electric Heating")] ControlElectricHeating,
+
         [GetString("Control Injector 1 Increase")] ControlInjector1Increase,
         [GetString("Control Injector 1 Decrease")] ControlInjector1Decrease,
         [GetString("Control Injector 1")] ControlInjector1,

@@ -60,6 +60,7 @@ namespace Orts.Simulation.RollingStocks
     {
         public float IdleRPM;
         public float HeatingRPM;
+        public bool HeatingTrigger = false;
         public float MaxRPM;
         public float MaxRPMChangeRate;
         public float PercentChangePerSec = .2f;
@@ -183,6 +184,11 @@ namespace Orts.Simulation.RollingStocks
         /// </summary> 
         public float GeneratorLowVoltage = 0;
         /// <summary>
+        /// Voltage of generator when not supplying motors.
+        /// </summary> 
+        public float GeneratorUnloadedVoltage = 0;
+       
+        /// <summary>
         /// Number of field changes defined.
         /// </summary> 
         private int FieldChangeNumber = 0;
@@ -282,6 +288,8 @@ namespace Orts.Simulation.RollingStocks
         /// </summary> 
         private FileStream fs;
 
+        public int HeatingRPMCalls=0;
+
         public MSTSDieselLocomotive(Simulator simulator, string wagFile)
             : base(simulator, wagFile)
         {
@@ -343,6 +351,7 @@ namespace Orts.Simulation.RollingStocks
                 //** For test, new UpdateMotiveForce. Would be better in MSTSLocomotive
                 case "engine(ortsdcmotorgeneratorvoltage": GeneratorVoltage = stf.ReadFloatBlock(STFReader.UNITS.Voltage, 1500); break;
                 case "engine(ortsdcmotorgeneratorlowvoltage": GeneratorLowVoltage = stf.ReadFloatBlock(STFReader.UNITS.Voltage, 0); break;
+                case "engine(ortsdcmotorgeneratorunloadedvoltage": GeneratorUnloadedVoltage = stf.ReadFloatBlock(STFReader.UNITS.Voltage, 0); break;
                 case "engine(ortsdcmotorfieldchangenumber": FieldChangeNumber = stf.ReadIntBlock(0); break;
                 case "engine(ortsdcmotorfieldspeedup": FieldChangeSpeedUpMatrix = new DataMatrix(stf); break;
                 case "engine(ortsdcmotorfieldspeeddown": FieldChangeSpeedDownMatrix = new DataMatrix(stf); break;
@@ -646,6 +655,7 @@ namespace Orts.Simulation.RollingStocks
             HasDCMotor = locoCopy.HasDCMotor;
             GeneratorVoltage = locoCopy.GeneratorVoltage;
             GeneratorLowVoltage = locoCopy.GeneratorLowVoltage;
+            GeneratorUnloadedVoltage = locoCopy.GeneratorUnloadedVoltage;
             FieldChangeNumber = locoCopy.FieldChangeNumber;
             FieldChangeSpeedUpMatrix = locoCopy.FieldChangeSpeedUpMatrix;
             FieldChangeSpeedDownMatrix = locoCopy.FieldChangeSpeedDownMatrix;
@@ -783,6 +793,7 @@ namespace Orts.Simulation.RollingStocks
         protected override void UpdatePowerSupply(float elapsedClockSeconds)
         {
             DieselEngines.Update(elapsedClockSeconds);
+            UpdateElectricalHeat(elapsedClockSeconds);
 
             ExhaustParticles.Update(elapsedClockSeconds, DieselEngines[0].ExhaustParticles);
             ExhaustMagnitude.Update(elapsedClockSeconds, DieselEngines[0].ExhaustMagnitude);
@@ -818,6 +829,7 @@ namespace Orts.Simulation.RollingStocks
                 }
             }
         }
+
 
         /// <summary>
         /// This function updates periodically the locomotive's motive force.
@@ -865,7 +877,7 @@ namespace Orts.Simulation.RollingStocks
                 DemandedVoltage = GeneratorLowVoltage + ((FullVoltage - GeneratorLowVoltage) * (ThrottlePercent / 100));
             }
 
-            if ((ThrottlePercent > 0))  //&&(Direction!= Direction.N))
+            if ((ThrottlePercent > 0)&&(Direction!= Direction.N))
             {
                 //** Increasing Generator Voltage smoothly  **//
                 if (Voltage < DemandedVoltage)
@@ -955,15 +967,26 @@ namespace Orts.Simulation.RollingStocks
             }
             else
             {
-                //** Throttle =0, line contactors opened, no voltage                                                **//
-                DemandedVoltage = 0;
-                Voltage = 0;
+                //** Throttle =0, line contactors opened, unloaded voltage                                                **//
+                DemandedVoltage = GeneratorUnloadedVoltage;
+                if (Voltage < DemandedVoltage)
+                {
+                    Voltage += 40 * elapsedClockSeconds;
+                    if (Math.Abs(Voltage - DemandedVoltage) < 5) Voltage = DemandedVoltage;
+                }
+                else if (Voltage < DemandedVoltage)
+                {
+                    Voltage -= 40 * elapsedClockSeconds;
+                    if (Math.Abs(Voltage-DemandedVoltage)<5) Voltage = DemandedVoltage;
+
+                }
+                else Voltage = DemandedVoltage;
                 TotalR = R + ShuntedR;
             }
 
 
             //** Calculating amperage using voltage, prev voltage, Resistance and inductance
-            if (AbsSpeedMpS > 0)
+            if ((AbsSpeedMpS > 0) && (ThrottlePercent!=0))
             {
 
                 UInductor = PrevVoltage - PrevBackEMF;
@@ -1534,6 +1557,22 @@ namespace Orts.Simulation.RollingStocks
                 }
                 
 
+            }
+        }
+        public void ToggleElectricHeatingCommand()
+        {
+            bool IsHeatingCommand = this.DieselEngines.DEList[0].IsHeatingRPMCommand();
+            HeatingRPMCalls++;
+
+            if (IsHeatingCommand == false)
+            {
+                Trace.TraceInformation(HeatingRPMCalls + " : On");
+                this.DieselEngines.DEList[0].HeatingRPMCommand(true);
+            }
+            else
+            {
+                Trace.TraceInformation(HeatingRPMCalls + " : Off");
+                this.DieselEngines.DEList[0].HeatingRPMCommand(false);
             }
         }
 

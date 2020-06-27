@@ -389,6 +389,8 @@ namespace ORTS.Settings
             Commands[(int)UserCommand.ControlHandbrakeNone] = new UserCommandKeyInput(0x27, KeyModifiers.Shift);
             Commands[(int)UserCommand.ControlHeadlightDecrease] = new UserCommandKeyInput(0x23, KeyModifiers.Shift);
             Commands[(int)UserCommand.ControlHeadlightIncrease] = new UserCommandKeyInput(0x23);
+            //** Added for Electric Heating 
+            Commands[(int)UserCommand.ControlElectricHeating] = new UserCommandKeyInput(0x23, KeyModifiers.Control);
             Commands[(int)UserCommand.ControlHorn] = new UserCommandKeyInput(0x39);
             Commands[(int)UserCommand.ControlImmediateRefill] = new UserCommandKeyInput(0x14, KeyModifiers.Shift);
             Commands[(int)UserCommand.ControlInitializeBrakes] = new UserCommandKeyInput(0x35, KeyModifiers.Shift);

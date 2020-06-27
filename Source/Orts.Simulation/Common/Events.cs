@@ -185,7 +185,7 @@ namespace Orts.Common
 
         SteamGearLeverToggle,
         AIFiremanSoundOn,
-        AIFiremanSoundOff
+        AIFiremanSoundOff,
     }
 
     public static class Events
