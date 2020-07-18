@@ -212,8 +212,8 @@ namespace Orts.Simulation.RollingStocks
         /// Set to True if a tab of notch is defined
         /// </summary> 
         /// 
-        private DataMatrix FieldChangeSpeedUpMatrix;
-        private DataMatrix FieldChangeSpeedDownMatrix;
+        private DataMatrix2D FieldChangeSpeedUpMatrix;
+        private DataMatrix2D FieldChangeSpeedDownMatrix;
         private DataMatrix FieldChangeNotchMatrix;
 
         private bool FieldChangeByNotch = false;
@@ -360,28 +360,21 @@ namespace Orts.Simulation.RollingStocks
                 case "engine(ortsdieselcooling": DieselEngineCooling = (DieselEngine.Cooling)stf.ReadInt((int)DieselEngine.Cooling.Proportional); break;
 
                 //** For test, new UpdateMotiveForce. Would be better in MSTSLocomotive
-                case "engine(ortsdcmotorgeneratorvoltage": GeneratorVoltage = stf.ReadFloatBlock(STFReader.UNITS.Voltage, 1500); break;
-                case "engine(ortsdcmotorgeneratorlowvoltage": GeneratorLowVoltage = stf.ReadFloatBlock(STFReader.UNITS.Voltage, 0); break;
-                case "engine(ortsdcmotorgeneratorunloadedvoltage": GeneratorUnloadedVoltage = stf.ReadFloatBlock(STFReader.UNITS.Voltage, 0); break;
-                case "engine(ortsdcmotorfieldchangenumber": FieldChangeNumber = stf.ReadIntBlock(0); break;
-                case "engine(ortsdcmotorfieldspeedup": FieldChangeSpeedUpMatrix = new DataMatrix(stf); break;
-                case "engine(ortsdcmotorfieldspeeddown": FieldChangeSpeedDownMatrix = new DataMatrix(stf); break;
-                case "engine(ortsdcmotorfieldnotch": FieldChangeNotchMatrix = new DataMatrix(stf); FieldChangeByNotch = true; break;
-         
-                case "engine(ortsdcmotorgearingreduction": GearingReduction = stf.ReadFloatBlock(STFReader.UNITS.None, 1.0f); break;
-                case "engine(ortstractionmotortype":
-                    String TempStr=stf.ReadStringBlock("").ToUpper();
-                    if (TempStr == "DC") HasDCMotor = true;
-                    else HasDCMotor = false;
-                    break;
-                                        
-                case "engine(ortsdcmotornumber": DCMotorNumber = stf.ReadIntBlock(1); break;
+
                 case "engine(ortsdcmotorinternalr": DCMotorInternalR = stf.ReadFloatBlock(STFReader.UNITS.None, 0.25f); break;
                 case "engine(ortsdcmotorinductorr": DCMotorInductorR = stf.ReadFloatBlock(STFReader.UNITS.None, 0.25f); break;
                 case "engine(ortsdcmotorinductance": DCMotorInductance = stf.ReadFloatBlock(STFReader.UNITS.None, 1.5f); break;
                 case "engine(ortsdcmotorbemffactor": DCMotorBEMFFactor = stf.ReadFloatBlock(STFReader.UNITS.None, 0.005f); break;
-                case "engine(ortsdcmotoramptoflowfactor": DCMotorAmpToFlowFactor = stf.ReadFloatBlock(STFReader.UNITS.None, 0.1f); break;
+                case "engine(ortsdcmotoramptoflowfactor": DCMotorAmpToFlowFactor = stf.ReadFloatBlock(STFReader.UNITS.None, 0.0f); break;
+                case "engine(ortsdcmotornumber": DCMotorNumber = stf.ReadIntBlock(1); break;
+                case "engine(ortsdcmotorgeneratorvoltage": GeneratorVoltage = stf.ReadFloatBlock(STFReader.UNITS.Voltage, 1500); break;
+                case "engine(ortsdcmotorgeneratorlowvoltage": GeneratorLowVoltage = stf.ReadFloatBlock(STFReader.UNITS.Voltage, 0); break;
+                case "engine(ortsdcmotorfieldchangenumber": FieldChangeNumber = stf.ReadIntBlock(0); break;
+                case "engine(ortsdcmotorfieldspeedup": FieldChangeSpeedUpMatrix = new DataMatrix2D(stf, false); break;
+                case "engine(ortsdcmotorfieldspeeddown": FieldChangeSpeedDownMatrix = new DataMatrix2D(stf, false); break;
+                case "engine(ortsdcmotorfieldnotch": FieldChangeNotchMatrix = new DataMatrix(stf); FieldChangeByNotch = true; break;
                 case "engine(ortsdcmotorusedcforce": UseDCMotorForce = stf.ReadBoolBlock(false); break;
+                case "engine(ortsdcmotorgearingreduction": GearingReduction = stf.ReadFloatBlock(STFReader.UNITS.None, 1.0f); break;
                 default:
                     GearBox.Parse(lowercasetoken, stf);
                     base.Parse(lowercasetoken, stf); break;
