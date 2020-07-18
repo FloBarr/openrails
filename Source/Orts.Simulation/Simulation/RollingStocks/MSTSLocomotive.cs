@@ -295,6 +295,16 @@ namespace Orts.Simulation.RollingStocks
         public float VacuumBrakesMainResChargingRatePSIAorInHgpS = Bar.ToPSI(Bar.FromInHg(0.2f));
         public float VacuumMainResVacuumPSIAorInHg = Vac.ToPress(23); // Vacuum currently in Main Reservoir
 
+        public enum TractionMotorTypes
+        {
+            Unknown,
+            AC,
+            DC,
+
+        }
+
+        public TractionMotorTypes TractionMotorType;
+
         // Set values for display in HUD
         public float WagonCoefficientFrictionHUD;
         public float LocomotiveCoefficientFrictionHUD;

@@ -936,7 +936,7 @@ namespace Orts.Simulation.RollingStocks
                     else
                     {
                         //** Or decelerating                        **//
-                        ActualFieldChangeFactor = FieldChangeSpeedDownMatrix.Get((ThrottlePercent / 100), AbsSpeedMpS);
+                        ActualFieldChangeFactor = FieldChangeSpeedDownMatrix.Get((ThrottlePercent / 100), AbsSpeedMpS); 
                     }
                 }
                 else  //** Linked to Notch                            **//

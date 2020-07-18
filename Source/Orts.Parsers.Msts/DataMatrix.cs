@@ -27,7 +27,7 @@ namespace Orts.Parsers.Msts
     /// </summary>
     public class DataMatrix
     {
-        float[] X;  // must be in increasing order
+        public float[] X;  // must be in increasing order
         public float[] Y;
         float[] Y2;
         int Size;       // number of values populated
@@ -68,8 +68,8 @@ namespace Orts.Parsers.Msts
             {
                 X[i] = list[2 * i];
                 Y[i] = list[2 * i + 1];
-//                if (i > 0 && X[i - 1] >= X[i])
-//                    STFException.TraceWarning(stf, "Matrix x values must be increasing.");
+                //                if (i > 0 && X[i - 1] >= X[i])
+                //                    STFException.TraceWarning(stf, "Matrix x values must be increasing.");
             }
         }
         public float this[float x]
@@ -95,8 +95,8 @@ namespace Orts.Parsers.Msts
         public float Get(float x)
         {
             //** Getting the value for x    **//
-            float value=Y[0];
-            for(int i=0; i<Size; i++)
+            float value = Y[0];
+            for (int i = 0; i < Size; i++)
             {
                 if (x >= X[i])
                 {
@@ -152,46 +152,6 @@ namespace Orts.Parsers.Msts
                     Y2[i] *= factor;
             }
         }
-        public void ComputeSpline()
-        {
-            ComputeSpline(null, null);
-        }
-        public void ComputeSpline(float? yp1, float? yp2)
-        {
-            Y2 = new float[Size];
-            float[] u = new float[Size];
-            if (yp1 == null)
-            {
-                Y2[0] = 0;
-                u[0] = 0;
-            }
-            else
-            {
-                Y2[0] = -.5f;
-                float d = X[1] - X[0];
-                u[0] = 3 / d * ((Y[1] - Y[0]) / d - yp1.Value);
-            }
-            for (int i = 1; i < Size - 1; i++)
-            {
-                float sig = (X[i] - X[i - 1]) / (X[i + 1] - X[i - 1]);
-                float p = sig * Y2[i - 1] + 2;
-                Y2[i] = (sig - 1) / p;
-                u[i] = (6 * ((Y[i + 1] - Y[i]) / (X[i + 1] - X[i]) -
-                    (Y[i] - Y[i - 1]) / (X[i] - X[i - 1])) / (X[i + 1] - X[i - 1]) -
-                    sig * u[i - 1]) / p;
-            }
-            if (yp2 == null)
-            {
-                Y2[Size - 1] = 0;
-            }
-            else
-            {
-                float d = X[Size - 1] - X[Size - 2];
-                Y2[Size - 1] = (3 / d * (yp2.Value - (Y[Size - 1] - Y[Size - 2]) / d) - .5f * u[Size - 2]) / (.5f * Y2[Size - 2] + 1);
-            }
-            for (int i = Size - 2; i >= 0; i--)
-                Y2[i] = Y2[i] * Y2[i + 1] + u[i];
-        }
 
         // restore game state
         public DataMatrix(BinaryReader inf)
@@ -246,7 +206,238 @@ namespace Orts.Parsers.Msts
                 return -1;
         }
     }
+
+    /// <summary>
+    /// two dimensional Interpolated table lookup - for use in Diesel
+    /// </summary>
+    public class DataMatrix2D
+    {
+        public float[] X;  // must be in increasing order
+        DataMatrix[] Y;
+        int Size;       // number of values populated
+        int PrevIndex;  // used to speed up repeated evaluations with similar x values
+        bool HasNegativeValues; // set when negative Y values present (e.g. in old triphase locos)
+        public DataMatrix2D(int n)
+        {
+            X = new float[n];
+            Y = new DataMatrix[n];
+        }
+        public DataMatrix2D(DataMatrix2D other)
+        {
+            X = other.X;
+            Size = other.Size;
+            Y = new DataMatrix[Size];
+            for (int i = 0; i < Size; i++)
+                Y[i] = new DataMatrix(other.Y[i]);
+        }
+        public DataMatrix2D(STFReader stf, bool tab)
+        {
+            // <CSComment> TODO: probably there is some other stf.SkipRestOfBlock() that should be removed </CSComment>
+            List<float> xlist = new List<float>();
+            List<DataMatrix> ilist = new List<DataMatrix>();
+
+            bool errorFound = false;
+            if (tab)
+            {
+                stf.MustMatch("(");
+                int numOfRows = stf.ReadInt(0);
+                if (numOfRows < 2)
+                {
+                    STFException.TraceWarning(stf, "DataMatrix2d must have at least two rows.");
+                    errorFound = true;
+                }
+                int numOfColumns = stf.ReadInt(0);
+                string header = stf.ReadString().ToLower();
+                if (header == "throttle")
+                {
+                    stf.MustMatch("(");
+                    int numOfThrottleValues = 0;
+                    while (!stf.EndOfBlock())
+                    {
+                        xlist.Add(stf.ReadFloat(STFReader.UNITS.None, 0f));
+                        ilist.Add(new DataMatrix(numOfRows));
+                        numOfThrottleValues++;
+                    }
+                    if (numOfThrottleValues != (numOfColumns - 1))
+                    {
+                        STFException.TraceWarning(stf, "DataMatrix2d throttle vs. num of columns mismatch.");
+                        errorFound = true;
+                    }
+
+                    if (numOfColumns < 3)
+                    {
+                        STFException.TraceWarning(stf, "DataMatrix2d must have at least three columns.");
+                        errorFound = true;
+                    }
+
+                    int numofData = 0;
+                    string tableLabel = stf.ReadString().ToLower();
+                    if (tableLabel == "table")
+                    {
+                        stf.MustMatch("(");
+                        for (int i = 0; i < numOfRows; i++)
+                        {
+                            float x = stf.ReadFloat(STFReader.UNITS.SpeedDefaultMPH, 0);
+                            numofData++;
+                            for (int j = 0; j < numOfColumns - 1; j++)
+                            {
+                                if (j >= ilist.Count)
+                                {
+                                    STFException.TraceWarning(stf, "DataMatrix2d throttle vs. num of columns mismatch. (missing some throttle values)");
+                                    errorFound = true;
+                                }
+                                ilist[j][x] = stf.ReadFloat(STFReader.UNITS.Force, 0);
+                                numofData++;
+                            }
+                        }
+                        stf.SkipRestOfBlock();
+                    }
+                    else
+                    {
+                        STFException.TraceWarning(stf, "DataMatrix2d didn't find a table to load.");
+                        errorFound = true;
+                    }
+                    //check the table for inconsistencies
+
+                    foreach (DataMatrix checkMe in ilist)
+                    {
+                        if (checkMe.GetSize() != numOfRows)
+                        {
+                            STFException.TraceWarning(stf, "DataMatrix2d has found a mismatch between num of rows declared and num of rows given.");
+                            errorFound = true;
+                        }
+                        float dx = (checkMe.MaxX() - checkMe.MinX()) * 0.1f;
+                        if (dx <= 0f)
+                        {
+                            STFException.TraceWarning(stf, "DataMatrix2d has found X data error - x values must be increasing. (Possible row number mismatch)");
+                            errorFound = true;
+                        }
+                        else
+                        {
+                            for (float x = checkMe.MinX(); x <= checkMe.MaxX(); x += dx)
+                            {
+                                if ((checkMe[x] == float.NaN))
+                                {
+                                    STFException.TraceWarning(stf, "DataMatrix2d has found X data error - x values must be increasing. (Possible row number mismatch)");
+                                    errorFound = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (numofData != (numOfRows * numOfColumns))
+                    {
+                        STFException.TraceWarning(stf, "DataMatrix2d has found a mismatch: num of data doesn't fit the header information.");
+                        errorFound = true;
+                    }
+                }
+                else
+                {
+                    STFException.TraceWarning(stf, "DataMatrix2d must have a 'throttle' header row.");
+                    errorFound = true;
+                }
+                stf.SkipRestOfBlock();
+            }
+            else
+            {
+                stf.MustMatch("(");
+                while (!stf.EndOfBlock())
+                {
+                    xlist.Add(stf.ReadFloat(STFReader.UNITS.Any, null));
+                    ilist.Add(new DataMatrix(stf));
+                }
+            }
+
+
+            int n = xlist.Count;
+            if (n < 2)
+            {
+                STFException.TraceWarning(stf, "DataMatrix2d must have at least two x values.");
+                errorFound = true;
+            }
+            X = new float[n];
+            Y = new DataMatrix[n];
+            Size = n;
+            for (int i = 0; i < n; i++)
+            {
+                X[i] = xlist[i];
+                Y[i] = ilist[i];
+                if (i > 0 && X[i - 1] >= X[i])
+                    STFException.TraceWarning(stf, "DataMatrix2d x values must be increasing.");
+            }
+            //stf.SkipRestOfBlock();
+            if (errorFound)
+            {
+                STFException.TraceWarning(stf, "Errors found in the DataMatrix2d definition!!! The Interpolator will not work correctly!");
+            }
+        }
+
+        public float Get(float x, float y)
+        {
+            if (x < X[PrevIndex] || x > X[PrevIndex + 1])
+            {
+                if (x < X[1])
+                    PrevIndex = 0;
+                else if (x > X[Size - 2])
+                    PrevIndex = Size - 2;
+                else
+                {
+                    int i = 0;
+                    int j = Size - 1;
+                    while (j - i > 1)
+                    {
+                        int k = (i + j) / 2;
+                        if (X[k] > x)
+                            j = k;
+                        else
+                            i = k;
+                    }
+                    PrevIndex = i;
+                }
+            }
+
+            float d = (X[PrevIndex + 1] - X[PrevIndex]);
+
+            float intermedValue = 0;
+
+            float z = Y[PrevIndex].Y[0];
+
+            for (int i = Y[PrevIndex].Y.Length - 1; i >= 0; i--)
+            {
+                //** Only works if tabs have the same size...   **//
+                if (Y[PrevIndex + 1].X.Length == Y[PrevIndex].X.Length)
+                {
+                    intermedValue = d * x * (Y[PrevIndex + 1].X[i] - Y[PrevIndex].X[i]) + Y[PrevIndex].X[i];
+                    if (y > intermedValue)
+                    {
+                        z = Y[PrevIndex + 1].Y[i];
+                        break;
+                    }
+                }
+            }
+
+            //            Trace.TraceInformation("Thr="+x+ ", Speed=" + y + ", d:" + d + ", intermedValue="+intermedValue+" -> z=" + z);
+            return z;
+        }
+
+        public void HasNegativeValue()
+        {
+            for (int i = 0; i < Size; i++)
+            {
+                var size = Y[i].GetSize();
+                for (int j = 0; j < size; j++)
+                {
+                    if (Y[i].HasNegativeValue())
+                    {
+                        HasNegativeValues = true;
+                        return;
+                    }
+                }
+            }
+        }
+
+    }
+
+
 }
-
-    
-
