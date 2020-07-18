@@ -531,13 +531,14 @@ namespace Orts.Simulation.RollingStocks
             }
 
             //** Checking DC Motors parameters                                                      **//
-            if(HasDCMotor==true)
+            //** Checking DC Motors parameters                                                      **//
+            if (TractionMotorType == TractionMotorTypes.DC)
             {
                 //** Setting a Max Current if not defined or defined to 0                           **//
                 if (MaxCurrentA == 0)
                 {
                     MaxCurrentA = 1000;
-                    Trace.TraceInformation("DC Motor: No Max Current set, set to "+MaxCurrentA);
+                    Trace.TraceInformation("DC Motor: No Max Current set, set to " + MaxCurrentA);
                 }
                 //** Setting a Max Current if not defined or defined to 0                           **//
                 if (DCMotorNumber == 0)
