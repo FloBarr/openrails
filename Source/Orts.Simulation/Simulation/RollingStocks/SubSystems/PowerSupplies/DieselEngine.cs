@@ -248,6 +248,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
         }
 
         /// <summary>
+        /// 
         /// A summary of current rail output power for all diesel prime movers
         /// </summary>
         public float CurrentRailOutputPowerW

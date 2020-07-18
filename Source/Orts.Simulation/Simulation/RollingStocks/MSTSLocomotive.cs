@@ -785,6 +785,18 @@ namespace Orts.Simulation.RollingStocks
                 case "engine(dieselenginespeedofmaxtractiveeffort": MSTSSpeedOfMaxContinuousForceMpS = stf.ReadFloatBlock(STFReader.UNITS.Speed, null); break;
                 case "engine(maxvelocity": MaxSpeedMpS = stf.ReadFloatBlock(STFReader.UNITS.Speed, null); break;
                 case "engine(ortsunloadingspeed": UnloadingSpeedMpS = stf.ReadFloatBlock(STFReader.UNITS.Speed, null); break;
+                case "engine(ortstractionmotortype":
+                    stf.MustMatch("(");
+                    var tractionmotorType = stf.ReadString();
+                    try
+                    {
+                        TractionMotorType = (TractionMotorTypes)Enum.Parse(typeof(TractionMotorTypes), tractionmotorType);
+                    }
+                    catch
+                    {
+                        STFException.TraceWarning(stf, "Assumed unknown engine type " + tractionmotorType);
+                    }
+                    break;
                 case "engine(type":
                     stf.MustMatch("(");
                     var engineType = stf.ReadString();
