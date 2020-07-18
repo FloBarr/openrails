@@ -999,6 +999,7 @@ namespace Orts.Simulation.RollingStocks
             MaxSpeedMpS = locoCopy.MaxSpeedMpS;
             UnloadingSpeedMpS = locoCopy.UnloadingSpeedMpS;
             EngineType = locoCopy.EngineType;
+            TractionMotorType = locoCopy.TractionMotorType;
             TractiveForceCurves = locoCopy.TractiveForceCurves;
             MaxContinuousForceN = locoCopy.MaxContinuousForceN;
             SpeedOfMaxContinuousForceMpS = locoCopy.SpeedOfMaxContinuousForceMpS;
@@ -4340,10 +4341,10 @@ namespace Orts.Simulation.RollingStocks
                             //** Ammeter with new dc motor traction
                             if (this is MSTSDieselLocomotive)
                             {
-                                if ((this as MSTSDieselLocomotive).HasDCMotor == true)
+                                if ((this as MSTSDieselLocomotive).TractionMotorType == TractionMotorTypes.DC)
                                 {
                                     data = (this as MSTSDieselLocomotive).DisplayedAmperage;
-                                    
+
                                 }
                             }
 
@@ -4357,10 +4358,10 @@ namespace Orts.Simulation.RollingStocks
                         //** Ammeter with new dc motor traction
                         if (this is MSTSDieselLocomotive)
                         {
-                            if ((this as MSTSDieselLocomotive).HasDCMotor == true)
+                            if ((this as MSTSDieselLocomotive).TractionMotorType == TractionMotorTypes.DC)
                             {
                                 data = (this as MSTSDieselLocomotive).DisplayedAmperage;
-                                
+
                             }
                         }
 
