@@ -262,6 +262,17 @@ namespace Orts.Simulation.RollingStocks
         private float OpenRailsMotiveForceN;
 
         /// <summary>
+        /// LegacyMotiveForce
+        /// </summary> 
+        private float LegacyMotiveForceN = 0;
+
+        /// <summary>
+        /// LegacyMotiveForce
+        /// </summary> 
+        private int PrevSpeed = 0;
+
+
+        /// <summary>
         /// Displayed Force
         /// </summary> 
         private float DisplayedMotiveForceN = 0;
@@ -548,15 +559,15 @@ namespace Orts.Simulation.RollingStocks
                     Trace.TraceInformation("DC Motor: Gearing Reduction not set, calculated to " + GearingReduction);
                 }
                 //** If Amp To Flow is not defined or set to 0, calculating one with known values   **//
-                if (DCMotorAmpToFlowFactor==0)
+                if (DCMotorAmpToFlowFactor == 0)
                 {
-                    DCMotorAmpToFlowFactor = (GearingReduction * MaxForceN) / (DCMotorNumber*MaxCurrentA*MaxCurrentA);
-                    Trace.TraceInformation("DC Motor: Amp To Flow parameter not set, calculated to "+DCMotorAmpToFlowFactor+" from known parameters");
+                    DCMotorAmpToFlowFactor = 2 * (MaxForceN / GearingReduction) / (DCMotorNumber * (MaxCurrentA / DCMotorNumber) * (MaxCurrentA / DCMotorNumber));
+                    Trace.TraceInformation("DC Motor: Amp To Flow parameter not set, calculated to " + DCMotorAmpToFlowFactor + " from known parameters");
                 }
                 if (DCMotorBEMFFactor == 0)
                 {
                     DCMotorBEMFFactor = 0.005f;
-                    Trace.TraceInformation("DC Motor: Back EMF parameter not set, forced to "+ DCMotorBEMFFactor);
+                    Trace.TraceInformation("DC Motor: Back EMF parameter not set, forced to " + DCMotorBEMFFactor);
                 }
             }
 
@@ -832,11 +843,10 @@ namespace Orts.Simulation.RollingStocks
 
 
         /// <summary>
-        /// This function updates periodically the locomotive's motive force.
+        /// Updates motor current in DC motors
         /// </summary>
-        public float UpdateDCMotorCurrent(float elapsedClockSeconds)
+        public void UpdateDCMotorCurrent(float elapsedClockSeconds)
         {
-            //** Added code for updatemotiveforce    **//
             float FullVoltage = GeneratorVoltage;       //** Max voltage given by alternator/generator, arbitrarily set  //750 for BB63500, 900 for 67300 (electric engine config)
             float R = DCMotorInternalR;                 //** Induced R, fixed, arbitrarily set
             float ShuntedR = DCMotorInductorR;          //** Inductor R, could be modified with field reduction
@@ -844,20 +854,20 @@ namespace Orts.Simulation.RollingStocks
             float Inductance = DCMotorInductance;       //** arbitrarily set, modify time responding of the current
             float TimeResponse = 1 / elapsedClockSeconds;       //** will impact Inductance, linked to time  **//
 
-            float k4 = GearingReduction * 60 / (3.1416f * (WheelRadiusM * 2));   //** conversion factor of abs speed to rot speed 
+            float k4 = GearingReduction * 60 / (3.1416f * (WheelRadiusM * 2));   //** conversion factor of abs speed to rot speed
 
-            //** Previous value, used to simulate derivative functions  **//
+            //** Previous value, used for simulate derivative functions  **//
             float PrevVoltage = Voltage;
             float PrevBackEMF = BackEMF;
             float PrevUInductor = UInductor;
             float PrevIInductor = IInductor;
 
-            float ActualFieldChangeFactor = 1;          //** Field diversion factor, initialy set to 1, modified later 
+            float ActualFieldChangeFactor = 1;          //** Field diversion factor, initialy set to 1, modified later
             float WantedNotch = 0;                      //** Used to determine voltage, while Field Change by Notch is active (max voltage supplied before fields changes notches
             float VirtualPercent = 0f;                  //** Virtual notch used to get voltage if Change by Notch is active
             float NotchCount = this.ThrottleController.NotchCount();                        //** Total notch count defined in .eng
 
-            string ExportString;                        //** Export to csv string
+            string ExportString; //** Export to string to txt file
 
             //** Getting Voltage , different if field diversion by speed or notch       **//
             //** If field diverting is set for notches                                  **//
@@ -867,18 +877,19 @@ namespace Orts.Simulation.RollingStocks
                 VirtualPercent = (float)(NotchCount / (NotchCount - FieldChangeNumber));
                 WantedNotch = VirtualPercent * (ThrottlePercent / 100);
                 if (WantedNotch > 1) WantedNotch = 1;
-                                
+
                 DemandedVoltage = GeneratorLowVoltage + ((FullVoltage - GeneratorLowVoltage) * WantedNotch);
-                
+
             }
             else
             {
-                //** Demanded voltage is proportionnal to throttle, between low and high voltage    **//
+                //** Demanded voltage is proportional to throttle, between low and high voltage    **//
                 DemandedVoltage = GeneratorLowVoltage + ((FullVoltage - GeneratorLowVoltage) * (ThrottlePercent / 100));
             }
 
-            if ((ThrottlePercent > 0)&&(Direction!= Direction.N))
+            if (ThrottlePercent > 0)
             {
+
                 //** Increasing Generator Voltage smoothly  **//
                 if (Voltage < DemandedVoltage)
                 {
@@ -905,119 +916,106 @@ namespace Orts.Simulation.RollingStocks
                         Voltage = ((this.DieselEngines.MaxOutputPowerW / DCMotorNumber) / IInductor);
                     }
                 }
-                //** Near to demanded Voltage, setting it exactly, avoiding oscillations    **//
-                if ((Math.Abs(DemandedVoltage - Voltage) * elapsedClockSeconds) < (2 * elapsedClockSeconds)) Voltage = DemandedVoltage;
 
+                //** Near to demanded Voltage, setting it exactly, avoiding oscillations    **//
+                if ((Math.Abs(DemandedVoltage - Voltage) * elapsedClockSeconds) < (2 * elapsedClockSeconds))
+                    Voltage = DemandedVoltage;
 
                 ShuntedR = DCMotorInductorR;
 
                 //** Calculating Field change factor            **//
                 //** Field change is linked to Speed            **//
-                if (FieldChangeByNotch==false)
+                if (FieldChangeByNotch == false)
                 {
-                    //** And accelerating                       **//
                     if (Train.AccelerationMpSpS.Value > 0)
-                    {    
-                        ActualFieldChangeFactor=FieldChangeSpeedUpMatrix.Get(AbsSpeedMpS);
+                    {
+                        //** And accelerating                       **//
+                        ActualFieldChangeFactor = FieldChangeSpeedUpMatrix.Get((ThrottlePercent / 100), AbsSpeedMpS);
+
                     }
-                    //** Or decelerating                        **//
                     else
                     {
-                        ActualFieldChangeFactor = FieldChangeSpeedDownMatrix.Get(AbsSpeedMpS);
+                        //** Or decelerating                        **//
+                        ActualFieldChangeFactor = FieldChangeSpeedDownMatrix.Get((ThrottlePercent / 100), AbsSpeedMpS);
                     }
                 }
-                //** Linked to Notch                            **//
-                else
+                else  //** Linked to Notch                            **//
                 {
                     //** If notch<=FieldChangeNotch, we use the value       **//
-                    ActualFieldChangeFactor = FieldChangeNotchMatrix.Get((ThrottlePercent/100));
+                    ActualFieldChangeFactor = FieldChangeNotchMatrix.Get((ThrottlePercent / 100));
                     ShuntedR = DCMotorInductorR * ActualFieldChangeFactor;
 
-                    
-//                    for (int i = 0; i < FieldChangeNumber; i++)
-//                    {
-//                        if ((int)(FieldChangeNotch[i]*100) <= (ThrottlePercent))
-//                        {
-//                            ActualFieldChangeFactor = FieldChangeValues[i];
-//                            ShuntedR = DCMotorInductorR * ActualFieldChangeFactor;
-//                        }
-//                    }
                 }
 
                 //** We now have Field R and Armature R                     **//
                 TotalR = R + ShuntedR;
+
                 //** Displaying infos, for tests                            **//
                 if (IsLeadLocomotive() == true)
                 {
                     if (IsMetric)
                     {
-                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information(DCMotorAmpToFlowFactor + ", Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
                     }
                     else
                     {
-                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN / 1000) + " lbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information(DCMotorAmpToFlowFactor + ", Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
                     }
                 }
 
                 //** Caluclating voltage used for following code, using Back EMF                                    **//
                 UInductor = Voltage - PrevBackEMF;
 
-                if (UInductor > Voltage) UInductor = Voltage;   //** Impossible to have a UInductor > Voltage!      **//
+                if (UInductor > Voltage)
+                    UInductor = Voltage;   //** Impossible to have a UInductor > Voltage!      **//
 
             }
             else
             {
-                //** Throttle =0, line contactors opened, unloaded voltage                                                **//
-                DemandedVoltage = GeneratorUnloadedVoltage;
-                if (Voltage < DemandedVoltage)
-                {
-                    Voltage += 40 * elapsedClockSeconds;
-                    if (Math.Abs(Voltage - DemandedVoltage) < 5) Voltage = DemandedVoltage;
-                }
-                else if (Voltage < DemandedVoltage)
-                {
-                    Voltage -= 40 * elapsedClockSeconds;
-                    if (Math.Abs(Voltage-DemandedVoltage)<5) Voltage = DemandedVoltage;
-
-                }
-                else Voltage = DemandedVoltage;
+                //** Throttle =0, line contactors opened, no voltage                                                **//
+                DemandedVoltage = 0;
+                Voltage = 0;
                 TotalR = R + ShuntedR;
             }
 
-
             //** Calculating amperage using voltage, prev voltage, Resistance and inductance
-            if ((AbsSpeedMpS > 0) && (ThrottlePercent!=0))
+            if (AbsSpeedMpS > 0)
             {
 
                 UInductor = PrevVoltage - PrevBackEMF;
 
-                if (UInductor > Voltage) UInductor = Voltage;   //** Impossible to have a UInductor > Voltage!      **//
+                if (UInductor > Voltage)
+                    UInductor = Voltage;   //** Impossible to have a UInductor > Voltage!      **//
 
                 //** New current is calculated                                                                      **//
                 IInductor = (PrevUInductor - (TotalR) * PrevIInductor) * (1 / (Inductance * TimeResponse)) + PrevIInductor;
                 //** And verified, if exceeding MaxCurrent, limited to this value                                   **//
                 //** In a perfect world, if exceeding value, should open line contactor or damage motors            **//
-                if (IInductor > MaxCurrentA / (DCMotorNumber)) IInductor = (MaxCurrentA / DCMotorNumber);
+                if (IInductor > MaxCurrentA / (DCMotorNumber))
+                    IInductor = (MaxCurrentA / DCMotorNumber);
+
+
             }
             else
             {
                 UInductor = Voltage;
                 IInductor = (PrevUInductor - (TotalR) * PrevIInductor) * (1 / (Inductance * TimeResponse)) + PrevIInductor;
+
                 if (IInductor > MaxCurrentA / (DCMotorNumber)) IInductor = (MaxCurrentA / DCMotorNumber);
 
-                //** Displaying information at speed = 0                                                            **//
+                //** Displaying information at speed = 0
                 if (IsLeadLocomotive() == true)
                 {
                     if (IsMetric)
                     {
                         Simulator.Confirmer.Information("Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total)");
+
                     }
                     else
                     {
-                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN / 1000) + " lbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
                     }
                 }
-
             }
 
             //** Verifying overload and overamp.                                                                        **//
@@ -1026,9 +1024,9 @@ namespace Orts.Simulation.RollingStocks
             if ((IInductor * (UInductor + PrevBackEMF)) > (this.DieselEngines.MaxOutputPowerW / DCMotorNumber))
             {
                 OverLoadValue = (IInductor * (UInductor + PrevBackEMF)) - (this.DieselEngines.MaxOutputPowerW / DCMotorNumber);
-
                 OverLoad = true;
             }
+
             //** If Current > Voltage/R, limiting the current: in normal use, could not happen                          **//
             OverAmp = false;
             if (IInductor > (Voltage / (TotalR)))
@@ -1038,69 +1036,96 @@ namespace Orts.Simulation.RollingStocks
             }
 
             //** Negative Current, not handled, set to 0 (need to be seen for Dynamic braking)                          **//
-            if (IInductor < 0) IInductor = 0;
 
+            if (IInductor < 0)
+                IInductor = 0;
 
             //** Using amperage to calculate flow generated                                                             **//
-            if (DCMotorInductorR > 0) InductFlow = DCMotorAmpToFlowFactor * IInductor * ActualFieldChangeFactor;
+            if (DCMotorInductorR > 0)
+                InductFlow = DCMotorAmpToFlowFactor * IInductor * ActualFieldChangeFactor;
 
-            //** and induced Force                                                                                      **//
+            //** and induced Force
             InducedForce = InductFlow * IInductor;
 
-            //** transmitted to wheels                                                                                  **//
-            WheelForce = InducedForce / GearingReduction;
+            //** transmitted to wheels
+            WheelForce = InducedForce * GearingReduction;
 
-            //** wheelspeed in m/s converted to rpm                                                                     **//
+            //** wheelspeed in m/s converted to rpm
             RotSpeed = k4 * AbsWheelSpeedMpS;
 
-            //** Back EMF, proportional to speed                                                                        **//
+            //** Back EMF, proportional to speed
             BackEMF = InductFlow * RotSpeed * DCMotorBEMFFactor;
 
             //** Verifying and correcting negative values                                                               **//
-            if (BackEMF < 0) BackEMF = 0;
-            if (BackEMF > Voltage) BackEMF = Voltage;
+            if (BackEMF < 0)
+                BackEMF = 0;
 
-            if (WheelForce < 0) WheelForce = 0;
-            if (WheelSpeed < 0) WheelSpeed = 0;
-            if (RotSpeed < 0) RotSpeed = 0;
+            if (BackEMF > Voltage)
+                BackEMF = Voltage;
 
-            //** Motive force set with WheelForce multiplied by number of motors                                        **//
+            if (WheelForce < 0)
+                WheelForce = 0;
+
+            if (WheelSpeed < 0)
+                WheelSpeed = 0;
+
+            if (RotSpeed < 0)
+                RotSpeed = 0;
+
+            // ** Motive force set with WheelForce multiplied by number of motors
             NewMotiveForceN = WheelForce * DCMotorNumber;
-            if (NewMotiveForceN > MaxForceN) NewMotiveForceN = MaxForceN;
+            if (NewMotiveForceN > MaxForceN)
+                NewMotiveForceN = MaxForceN;
 
             //** Giving value to display in cab                                                                         **//
             DisplayedAmperage = IInductor;
 
             //** Report writing                                                                                         **//
-            if ((ThrottlePercent > 0))//|| (AbsSpeedMpS > 0))
+            if (ThrottlePercent > 0)
             {
                 TimeFromStart += elapsedClockSeconds;
+
+
                 if (this.IsLeadLocomotive())
                 {
-                    if ((TimeFromStart - PrevTimeFromStart) > 0.1)  //** Writing report every 0.5s
+
+                    //                    if ((TimeFromStart - PrevTimeFromStart) > 0.5)  //** Writing report every 0.5s
+                    //                    {
+                    //** Creating String                    **//
+                    if (IsMetric)
                     {
-                        //** Creating String                    **//
-                        if (IsMetric)
+                        //** Export every KpH   **//
+                        if (PrevSpeed != (int)Math.Round(MpS.ToKpH(AbsSpeedMpS)))
                         {
-                            ExportString = MpS.ToKpH(AbsSpeedMpS) + ";" + TimeFromStart + ";" + ThrottlePercent + ";" + Voltage + ";" + UInductor + ";" + BackEMF + ";" + TotalR + ";" + IInductor + ";" + InductFlow + ";" + (NewMotiveForceN / 1000) + ";" + (OpenRailsMotiveForceN / 1000) + ";" + ((Voltage * IInductor / 1000)) + ";" + ((this.DieselEngines.MaxOutputPowerW / DCMotorNumber) / 1000) + ";" + OverLoad + "\r\n";
+                            PrevSpeed = (int)Math.Round(MpS.ToKpH(AbsSpeedMpS));
+                            ExportString = MpS.ToKpH(AbsSpeedMpS) + ";" + TimeFromStart + ";" + ThrottlePercent + ";" + Voltage + ";" + UInductor + ";" + BackEMF + ";" + TotalR + ";" + IInductor + ";" + InductFlow + ";" + (NewMotiveForceN / 1000) + ";" + (LegacyMotiveForceN / 1000) + ";" + (Voltage * IInductor / 1000) + ";" + ((this.DieselEngines.MaxOutputPowerW / DCMotorNumber) / 1000) + ";" + OverLoad + "\r\n";
+                            //**Export to report file
+                            byte[] info = new UTF8Encoding(true).GetBytes(ExportString);
+                            fs.Write(info, 0, info.Length);
+                            PrevTimeFromStart = TimeFromStart;
                         }
-                        else
-                        {
-                            ExportString = MpS.ToMpH(AbsSpeedMpS) + ";" + TimeFromStart + ";" + ThrottlePercent + ";" + Voltage + ";" + UInductor + ";" + BackEMF + ";" + TotalR + ";" + IInductor + ";" + InductFlow + ";" + N.ToLbf(NewMotiveForceN) + ";" + N.ToLbf(OpenRailsMotiveForceN) + ";" + ((Voltage * IInductor / 1000)) + ";" + W.ToHp(this.DieselEngines.MaxOutputPowerW / DCMotorNumber) + ";" + OverLoad + "\r\n";
-                        }
-                        //**Export to report file               **//
-                        byte[] info = new UTF8Encoding(true).GetBytes(ExportString);
-                        fs.Write(info, 0, info.Length);
-                        PrevTimeFromStart = TimeFromStart;
 
                     }
+                    else
+                    {
+                        //** Export every MpH   **//
+                        if (PrevSpeed != (int)Math.Round(MpS.ToKpH(AbsSpeedMpS)))
+                        {
+                            PrevSpeed = (int)Math.Round(MpS.ToKpH(AbsSpeedMpS));
+                            ExportString = MpS.ToMpH(AbsSpeedMpS) + ";" + TimeFromStart + ";" + ThrottlePercent + ";" + Voltage + ";" + UInductor + ";" + BackEMF + ";" + TotalR + ";" + IInductor + ";" + InductFlow + ";" + N.ToLbf(NewMotiveForceN) + ";" + N.ToLbf(LegacyMotiveForceN) + ";" + (Voltage * IInductor / 1000) + ";" + W.ToHp(this.DieselEngines.MaxOutputPowerW / DCMotorNumber) + ";" + OverLoad + "\r\n";
+                            //**Export to report file
+                            byte[] info = new UTF8Encoding(true).GetBytes(ExportString);
+                            fs.Write(info, 0, info.Length);
+                            PrevTimeFromStart = TimeFromStart;
+                        }
+                    }
+
+                    //                    }
                 }
+
             }
 
-            //** Returning the Motive Force calculated, to be used or not                   **//
-            return NewMotiveForceN;
         }
-
 
         /// <summary>
         /// This function updates periodically the locomotive's motive force.
@@ -1116,7 +1141,8 @@ namespace Orts.Simulation.RollingStocks
             {
                 if (HasDCMotor == true)
                 {
-                    NewMotiveForceN = UpdateDCMotorCurrent(elapsedClockSeconds);
+                    if (UseDCMotorForce == true) NewMotiveForceN = UpdateDCMotorCurrent(elapsedClockSeconds);
+                    else ExtrapolateDCMotorCurrent(elapsedClockSeconds);
                 }
 
                 // Appartent throttle setting is a reverse lookup of the throttletab vs rpm, hence motive force increase will be related to increase in rpm. The minimum of the two values
@@ -1227,7 +1253,7 @@ namespace Orts.Simulation.RollingStocks
                 MotiveForceN = OpenRailsMotiveForceN;
             }
             //** Forcing MotiveForceN or ORForce to be used          **//
-            if(UseDCMotorForce==false) MotiveForceN = OpenRailsMotiveForceN;
+            if (UseDCMotorForce == false) MotiveForceN = OpenRailsMotiveForceN;
             else MotiveForceN = NewMotiveForceN;
 
             //** Force to be displayed                              **//
