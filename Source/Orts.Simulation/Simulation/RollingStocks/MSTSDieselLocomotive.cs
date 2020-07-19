@@ -774,6 +774,11 @@ namespace Orts.Simulation.RollingStocks
         /// </summary>
         public override void Update(float elapsedClockSeconds)
         {
+            if (TractionMotorType == TractionMotorTypes.DC)
+            {
+                UpdateDCMotorCurrent(elapsedClockSeconds);
+            }
+
             base.Update(elapsedClockSeconds);
 
             // The following is not in the UpdateControllers function due to the fact that fuel level has to be calculated after the motive force calculation.

@@ -318,9 +318,10 @@ namespace Orts.Viewer3D.SharedMemoryFiles
 
                             //** Amperages  **//
                             wMaxCurrent = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).MaxCurrentA;
-                            if((viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).HasDCMotor==true)
+                            if((viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).UseDCMotorForce==true)
                             {
-                                wAmperage = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DCMotorNumber* (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DisplayedAmperage;
+                                wAmperage = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DisplayedAmperage;
+//                                wAmperage = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DCMotorNumber* (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DisplayedAmperage;
                             }
                             else
                             {
@@ -373,6 +374,7 @@ namespace Orts.Viewer3D.SharedMemoryFiles
                             wAmperage = Math.Abs((wEffortLoc / wEffortMaxLoc) * wMaxCurrent);
                             wAmperages += Math.Round(Math.Abs(wAmperage), 0);
 
+                            wVoltages += "0";
                             //** Puissances **//
                             wPuissanceMax = (viewer.PlayerTrain.Cars[i] as MSTSElectricLocomotive).MaxPowerW / 1000;
                             wPuissancesMax += Math.Round(Math.Abs(wPuissanceMax), 0);
