@@ -534,6 +534,7 @@ namespace Orts.Simulation.RollingStocks
             //** Checking DC Motors parameters                                                      **//
             if (TractionMotorType == TractionMotorTypes.DC)
             {
+                HasDCMotor = true;
                 //** Setting a Max Current if not defined or defined to 0                           **//
                 if (MaxCurrentA == 0)
                 {
@@ -888,28 +889,41 @@ namespace Orts.Simulation.RollingStocks
 
             if (ThrottlePercent > 0)
             {
+                //                bool wCurrentPriority = true;
 
-                //** Increasing Generator Voltage smoothly  **//
-                if (Voltage < DemandedVoltage)
+                //                if((wCurrentPriority==false)|| ((DemandedVoltage < (GeneratorLowVoltage + (AbsSpeedMpS / (MaxSpeedMpS / 5)) * (GeneratorLowVoltage + GeneratorVoltage)) * (ThrottlePercent / 100))&&(wCurrentPriority == true)))
+                if ((DemandedVoltage < (GeneratorLowVoltage + (AbsSpeedMpS / (MaxSpeedMpS / 5)) * (GeneratorLowVoltage + GeneratorVoltage)) * (ThrottlePercent / 100))||(FieldChangeByNotch==true))
                 {
-                    //** Testing power after Voltage increase: if voltage*current > available power, voltage=power/current   **//
-                    if ((IInductor * (Voltage + (40 * elapsedClockSeconds))) > ((this.DieselEngines.MaxOutputPowerW) / DCMotorNumber))
+                    //** Increasing Generator Voltage smoothly  **//
+                    if (Voltage < DemandedVoltage)
                     {
-                        Voltage = (this.DieselEngines.MaxOutputPowerW / PrevIInductor) / DCMotorNumber;
-                        OverLoad = true;
+                        //** Testing power after Voltage increase: if voltage*current > available power, voltage=power/current   **//
+                        if ((IInductor * (Voltage + (40 * elapsedClockSeconds))) > ((this.DieselEngines.MaxOutputPowerW) / DCMotorNumber))
+                        {
+                            Voltage = (this.DieselEngines.MaxOutputPowerW / PrevIInductor) / DCMotorNumber;
+                            OverLoad = true;
+                        }
+                        else
+                        {
+                            Voltage += 40 * elapsedClockSeconds; //40V seconds, would be set by parameter as depends on loco.
+                        }
+
+                    }
+                    else if (Voltage > DemandedVoltage)
+                    {
+                        Voltage -= 40 * elapsedClockSeconds; //40V seconds, would be set by parameter as depends on loco.
                     }
                     else
                     {
-                        Voltage += 40 * elapsedClockSeconds; //40V seconds, would be set by parameter as depends on loco.
+                        if ((IInductor * Voltage) > ((this.DieselEngines.MaxOutputPowerW) / DCMotorNumber))
+                        {
+                            Voltage = ((this.DieselEngines.MaxOutputPowerW / DCMotorNumber) / IInductor);
+                        }
                     }
-
-                }
-                else if (Voltage > DemandedVoltage)
-                {
-                    Voltage -= 40 * elapsedClockSeconds; //40V seconds, would be set by parameter as depends on loco.
                 }
                 else
                 {
+                    Voltage = (GeneratorLowVoltage + (AbsSpeedMpS / (MaxSpeedMpS/4)) * (GeneratorVoltage - GeneratorLowVoltage)) * (ThrottlePercent / 100);
                     if ((IInductor * Voltage) > ((this.DieselEngines.MaxOutputPowerW) / DCMotorNumber))
                     {
                         Voltage = ((this.DieselEngines.MaxOutputPowerW / DCMotorNumber) / IInductor);

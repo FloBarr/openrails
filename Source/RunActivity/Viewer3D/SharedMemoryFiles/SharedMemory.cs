@@ -337,7 +337,7 @@ namespace Orts.Viewer3D.SharedMemoryFiles
                             wVoltages+= Math.Round(Math.Abs(wVoltage), 0);
 
                             //** Puissances **//
-                            wPuissanceLoc = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DieselEngines[0].OutputPowerW / 1000;
+                            wPuissanceLoc = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DieselEngines[0].CurrentRailOutputPowerW / 1000;
                             wPuissances += Math.Round(Math.Abs(wPuissanceLoc), 0);
 
                             wPuissanceLoc = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DieselEngines[0].MaximumDieselPowerW / 1000;    //   .MaxOutputPowerW / 1000;
