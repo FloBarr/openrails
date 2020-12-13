@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ORTS.Menu</name>
+    </assembly>
+    <members>
+        <member name="T:ORTS.Menu.Path">
+            <summary>
+            Representation of the metadata of a path, where the path is coded in a .pat file. So not the full .pat file,
+            but just basic information to be used in menus etc.
+            </summary>
+        </member>
+        <member name="F:ORTS.Menu.Path.Name">
+            <summary>Name of the path</summary>
+        </member>
+        <member name="F:ORTS.Menu.Path.Start">
+            <summary>Start location of the path</summary>
+        </member>
+        <member name="F:ORTS.Menu.Path.End">
+            <summary>Destination location of the path</summary>
+        </member>
+        <member name="F:ORTS.Menu.Path.FilePath">
+            <summary>Full filename of the underlying .pat file</summary>
+        </member>
+        <member name="F:ORTS.Menu.Path.IsPlayerPath">
+            <summary>Is the path a player path or not</summary>
+        </member>
+        <member name="M:ORTS.Menu.Path.#ctor(System.String)">
+            <summary>
+            Constructor. This will try to have the requested .pat file parsed for its metadata
+            </summary>
+            <param name="filePath">The full name of the .pat file</param>
+        </member>
+        <member name="M:ORTS.Menu.Path.ToString">
+            <summary>
+            A path will be identified by its destination
+            </summary>
+        </member>
+        <member name="M:ORTS.Menu.Path.GetPaths(ORTS.Menu.Route,System.Boolean)">
+            <summary>
+            Return a list of paths that belong to the given route.
+            </summary>
+            <param name="route">The Route for which the paths need to be found</param>
+            <param name="includeNonPlayerPaths">Selects whether non-player paths are included or not</param>
+        </member>
+        <member name="M:ORTS.Menu.Path.GetPath(ORTS.Menu.Route,System.String,System.Boolean)">
+            <summary>
+            Get a path from a certain route with given name.
+            </summary>
+            <param name="route">The Route for which the paths need to be found</param>
+            <param name="name">The (file) name of the path, without directory, any extension allowed</param>
+            <param name="allowNonPlayerPath">Are non-player paths allowed?</param>
+            <returns>The path that has been found and is allowed, or null</returns>
+        </member>
+        <member name="M:ORTS.Menu.Path.ToInfo">
+            <summary>
+            Additional information strings about the metadata
+            </summary>
+            <returns>array of strings with the user-readable information</returns>
+        </member>
+    </members>
+</doc>

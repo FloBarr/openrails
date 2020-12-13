@@ -168,9 +168,12 @@ namespace Orts.Viewer3D.SharedMemoryFiles
                 Running = true;
                 //** not usefull to run quickly, 10 updates per second are ok                   **//
                 Thread.Sleep(100);
+
                 MessageToSend = GenerateMessage();
+
+
 //                Trace.WriteLine(MessageToSend);
-                UpdateSharedMemory(MessageToSend);
+                  if(MessageToSend!=null) UpdateSharedMemory(MessageToSend);
             }
         }
 
@@ -392,20 +395,40 @@ namespace Orts.Viewer3D.SharedMemoryFiles
             //** Fin Recup de toutes les machines  **//
 
             //** Infos générales                    **//
-            int wFanaux = (viewer.PlayerTrain.LeadLocomotive as MSTSLocomotive).Headlight;
-
+            int wFanaux=0;
+            float wFrein = 0f;
+            wFanaux = (viewer.PlayerTrain.LeadLocomotive as MSTSLocomotive).Headlight;
             wUrgence = (viewer.PlayerTrain.LeadLocomotive as MSTSLocomotive).EmergencyButtonPressed ? 1 : 0;
+            wFrein = (viewer.PlayerTrain.LeadLocomotive as MSTSLocomotive).TrainBrakeController.CurrentValue;
 
-            float wFrein = (viewer.PlayerTrain.LeadLocomotive as MSTSLocomotive).TrainBrakeController.CurrentValue;
             double wLongueur = viewer.PlayerTrain.Length;
-            float wDistanceSignal = viewer.PlayerTrain.DistanceToSignal.Value;
+            float wDistanceSignal = 0f;
+            try
+            {
+                wDistanceSignal = viewer.PlayerTrain.DistanceToSignal.Value;
+            }
+            catch
+            {
+            }
             int wDirection = 0;
-            MstsSignalAspect wAspect = viewer.PlayerTrain.GetNextSignalAspect(wDirection); //GetNextSignalAspect(wDirection);
+
+            String wAspect;
+            try
+            {
+                MstsSignalAspect wAspectTemp = viewer.PlayerTrain.GetNextSignalAspect(wDirection); //GetNextSignalAspect(wDirection);
+                wAspect = wAspectTemp.ToString();
+            }
+            catch
+            {
+                wAspect = "Unknown";
+            }
+            
+
 
             double wOdometrie = Math.Round(viewer.PlayerTrain.DistanceTravelledM, 0);
 
 
-
+            
             //** Mise en forme                                          **//
             Message = "I=" +
                 Math.Round((viewer.PlayerTrain.SpeedMpS * 3.6), 1) + ';' +                 //1
