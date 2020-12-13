@@ -326,7 +326,7 @@ namespace Orts.Simulation.RollingStocks
             }
             catch
             {
-                Trace.TraceInformation("Export File already used");
+//                Trace.TraceInformation("Export File already used");
             }
 
             PowerOn = true;

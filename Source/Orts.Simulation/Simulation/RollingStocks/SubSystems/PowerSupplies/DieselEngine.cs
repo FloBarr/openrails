@@ -1081,7 +1081,16 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                 if (GearBox.CurrentGear != null)
                 {
                     if (GearBox.IsClutchOn)
-                        DemandedRPM = GearBox.ShaftRPM;
+                    {
+                        if (DemandedRPM >= GearBox.ShaftRPM)
+                        {
+                            DemandedRPM = GearBox.ShaftRPM;
+                        }
+                        else
+                        {
+                            DemandedRPM = ThrottleRPMTab[demandedThrottlePercent];
+                        }
+                    }
                 }
             }
 
