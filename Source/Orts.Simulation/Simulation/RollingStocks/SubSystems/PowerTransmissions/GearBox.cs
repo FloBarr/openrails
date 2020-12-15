@@ -15,6 +15,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
         public GearBoxOperation GearBoxOperation = GearBoxOperation.Manual;
         public GearBoxEngineBraking GearBoxEngineBraking = GearBoxEngineBraking.None;
         public List<float> GearBoxMaxSpeedForGearsMpS = new List<float>();
+        public List<bool> GearBoxFreeWheelForGears = new List<bool>();
         public List<float> GearBoxMaxTractiveForceForGearsN = new List<float>();
         public float GearBoxOverspeedPercentageForFailure = 150f;
         public float GearBoxBackLoadForceN = 1000;
@@ -39,6 +40,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
             GearBoxOperation = copy.GearBoxOperation;
             GearBoxEngineBraking = copy.GearBoxEngineBraking;
             GearBoxMaxSpeedForGearsMpS = new List<float>(copy.GearBoxMaxSpeedForGearsMpS);
+            GearBoxFreeWheelForGears = new List<bool>(copy.GearBoxFreeWheelForGears);
             GearBoxMaxTractiveForceForGearsN = new List<float>(copy.GearBoxMaxTractiveForceForGearsN);
             GearBoxOverspeedPercentageForFailure = copy.GearBoxOverspeedPercentageForFailure;
             GearBoxBackLoadForceN = copy.GearBoxBackLoadForceN;
@@ -53,7 +55,14 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
             string temp = "";
             switch (lowercasetoken)
             {
-                case "engine(gearboxnumberofgears": GearBoxNumberOfGears = stf.ReadIntBlock(1); initLevel++; break;
+                case "engine(gearboxnumberofgears": 
+                    GearBoxNumberOfGears = stf.ReadIntBlock(1); initLevel++;
+                    for (int i = 0; i < GearBoxNumberOfGears; i++)
+                    {
+                        bool BoolValue = false;
+                        GearBoxFreeWheelForGears.Add(BoolValue);
+                    }
+                    break;
                 case "engine(gearboxdirectdrivegear": GearBoxDirectDriveGear = stf.ReadIntBlock(1); break; // initLevel++; break;
                 case "engine(gearboxoperation":
                     temp = stf.ReadStringBlock("manual");
@@ -87,6 +96,26 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                         for (int i = 0; i < GearBoxNumberOfGears; i++)
                         {
                             GearBoxMaxSpeedForGearsMpS.Add(stf.ReadFloat(STFReader.UNITS.SpeedDefaultMPH, 10.0f));
+                        }
+                        stf.SkipRestOfBlock();
+                        initLevel++;
+                    }
+                    break;
+                case "engine(gearboxfreewheelforgears":
+                    temp = stf.ReadItem();
+                    if (temp == ")")
+                    {
+                        stf.StepBackOneItem();
+                    }
+                    if (temp == "(")
+                    {
+                        GearBoxFreeWheelForGears.Clear();
+                        for (int i = 0; i < GearBoxNumberOfGears; i++)
+                        {
+                            bool BoolValue = false;
+                            int Value = stf.ReadInt(0);
+                            if (Value == 1) BoolValue = true;
+                            GearBoxFreeWheelForGears.Add(BoolValue);
                         }
                         stf.SkipRestOfBlock();
                         initLevel++;
@@ -402,6 +431,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                     Gears[i].DownGearProportion = mstsParams.GearBoxDownGearProportion;
                     Gears[i].IsDirectDriveGear = (mstsParams.GearBoxDirectDriveGear == mstsParams.GearBoxNumberOfGears);
                     Gears[i].MaxSpeedMpS = mstsParams.GearBoxMaxSpeedForGearsMpS[i];
+                    Gears[i].FreeWheel = mstsParams.GearBoxFreeWheelForGears[i];
                     Gears[i].MaxTractiveForceN = mstsParams.GearBoxMaxTractiveForceForGearsN[i];
                     Gears[i].OverspeedPercentage = mstsParams.GearBoxOverspeedPercentageForFailure;
                     Gears[i].UpGearProportion = mstsParams.GearBoxUpGearProportion;
@@ -521,6 +551,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
         public float CoastingForceN;
         public float UpGearProportion;
         public float DownGearProportion;
+        public bool FreeWheel;
 
         public float Ratio = 1f;
 
