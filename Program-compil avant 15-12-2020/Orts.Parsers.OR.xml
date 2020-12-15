@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Orts.Parsers.OR</name>
+    </assembly>
+    <members>
+        <member name="T:Orts.Parsers.OR.TimetableReader">
+            <summary>
+            Reads a timetable file in to a 2D collection of unprocessed strings.
+            </summary>
+        </member>
+    </members>
+</doc>

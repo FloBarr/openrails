@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ORTS.Content</name>
+    </assembly>
+    <members>
+        <member name="T:MSTS.MSTSPath">
+            <summary>
+            Utility functions to access the various directories in an MSTS install.
+            </summary>
+        </member>
+        <member name="M:MSTS.MSTSPath.Base">
+            <summary>
+            Returns the base path of the MSTS installation
+            </summary>
+            <returns>no trailing \</returns>
+        </member>
+        <member name="M:MSTS.MSTSPath.RouteFolder(System.String)">
+            <summary>
+            Returns the route folder with out trailing \
+            </summary>
+            <param name="route"></param>
+            <returns></returns>
+        </member>
+        <member name="M:MSTS.MSTSPath.TrainSoundPath(System.String,System.String)">
+            <summary>
+            Given a soundfile reference in a wag or eng file, return the path the sound file
+            </summary>
+            <param name="wagfilename"></param>
+            <param name="soundfile"></param>
+            <returns></returns>
+        </member>
+        <member name="M:MSTS.MSTSPath.SMSSoundPath(System.String,System.String)">
+            <summary>
+            Given a soundfile reference in a cvf file, return the path to the sound file
+            </summary>
+        </member>
+    </members>
+</doc>
