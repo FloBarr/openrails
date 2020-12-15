@@ -1082,7 +1082,11 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                 {
                     if (GearBox.IsClutchOn)
                     {
+<<<<<<< HEAD
                         if (DemandedRPM >= GearBox.ShaftRPM)
+=======
+                        if ((DemandedRPM >= GearBox.ShaftRPM)||(GearBox.CurrentGear.FreeWheel==false))
+>>>>>>> Gearbox Freewheel add
                         {
                             DemandedRPM = GearBox.ShaftRPM;
                         }
