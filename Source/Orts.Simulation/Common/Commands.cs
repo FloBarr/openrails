@@ -251,7 +251,8 @@ namespace Orts.Common
     [Serializable()]
     public sealed class CircuitBreakerClosingOrderCommand : BooleanCommand
     {
-        public static MSTSElectricLocomotive Receiver { get; set; }
+        public static MSTSLocomotive Receiver { get; set; }
+        //        public static MSTSElectricLocomotive Receiver { get; set; }
 
         public CircuitBreakerClosingOrderCommand(CommandLog log, bool toState)
             : base(log, toState)
@@ -277,7 +278,8 @@ namespace Orts.Common
     [Serializable()]
     public sealed class CircuitBreakerClosingOrderButtonCommand : BooleanCommand
     {
-        public static MSTSElectricLocomotive Receiver { get; set; }
+        public static MSTSLocomotive Receiver { get; set; }
+        //        public static MSTSElectricLocomotive Receiver { get; set; }
 
         public CircuitBreakerClosingOrderButtonCommand(CommandLog log, bool toState)
             : base(log, toState)
@@ -303,7 +305,8 @@ namespace Orts.Common
     [Serializable()]
     public sealed class CircuitBreakerOpeningOrderButtonCommand : BooleanCommand
     {
-        public static MSTSElectricLocomotive Receiver { get; set; }
+//        public static MSTSElectricLocomotive Receiver { get; set; }
+        public static MSTSLocomotive Receiver { get; set; }
 
         public CircuitBreakerOpeningOrderButtonCommand(CommandLog log, bool toState)
             : base(log, toState)
@@ -329,7 +332,8 @@ namespace Orts.Common
     [Serializable()]
     public sealed class CircuitBreakerClosingAuthorizationCommand : BooleanCommand
     {
-        public static MSTSElectricLocomotive Receiver { get; set; }
+        public static MSTSLocomotive Receiver { get; set; }
+        //        public static MSTSElectricLocomotive Receiver { get; set; }
 
         public CircuitBreakerClosingAuthorizationCommand(CommandLog log, bool toState)
             : base(log, toState)

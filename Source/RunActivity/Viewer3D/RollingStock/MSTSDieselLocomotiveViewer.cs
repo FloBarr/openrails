@@ -75,9 +75,30 @@ namespace Orts.Viewer3D.RollingStock
 
         public override void InitializeUserInputCommands()
         {
+            bool initVar = false;
+
             UserInputCommands.Add(UserCommand.ControlVacuumExhausterPressed, new Action[] { () => new VacuumExhausterCommand(Viewer.Log, false), () => new VacuumExhausterCommand(Viewer.Log, true) });
             UserInputCommands.Add(UserCommand.ControlDieselPlayer, new Action[] { Noop, () => new TogglePlayerEngineCommand(Viewer.Log) });
             UserInputCommands.Add(UserCommand.ControlElectricHeating, new Action[] { Noop, () => new ToggleElectricHeatingCommand(Viewer.Log) });
+
+
+            //** Added FB                                                                           **//
+            //** For dual mode consists, add electric controls from a diesel loco                                                          **//
+            Console.WriteLine("Ajout des commandes DJ en thermique");
+            UserInputCommands.Add(UserCommand.ControlCircuitBreakerClosingOrder, new Action[] {
+                () => new CircuitBreakerClosingOrderButtonCommand(Viewer.Log, false),
+                () => {
+                    new CircuitBreakerClosingOrderCommand(Viewer.Log, !initVar);
+                    new CircuitBreakerClosingOrderButtonCommand(Viewer.Log, true);
+                }
+            });
+            UserInputCommands.Add(UserCommand.ControlCircuitBreakerOpeningOrder, new Action[] {
+                () => new CircuitBreakerOpeningOrderButtonCommand(Viewer.Log, false),
+                () => new CircuitBreakerOpeningOrderButtonCommand(Viewer.Log, true)
+            });
+            UserInputCommands.Add(UserCommand.ControlCircuitBreakerClosingAuthorization, new Action[] { Noop, () => new CircuitBreakerClosingAuthorizationCommand(Viewer.Log, !initVar) });
+            //** End of add FB   **//
+
             base.InitializeUserInputCommands();
         }
 

@@ -4217,6 +4217,30 @@ namespace Orts.Simulation.RollingStocks
                         data = ConvertFromPSI(cvc, BrakeSystem.GetVacResPressurePSI());
                         break;
                     }
+
+                //** LINE VOLTAGE TAKEN FROM OTHER CAR
+                case CABViewControlTypes.LINE_VOLTAGE:
+                    {
+                        foreach (var car in Train.Cars)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            if (electricLoco != null)
+                            {
+
+                                if (car != Simulator.PlayerLocomotive)
+                                {
+
+                                    data = electricLoco.PowerSupply.PantographVoltageV;
+                                    break;
+                                }
+                            }
+                        }
+                        //var mstsDieselLocomotive = this as MSTSDieselLocomotive;
+                        //if (mstsDieselLocomotive.DieselEngines[0] != null)
+                        //data = mstsDieselLocomotive.DieselEngines[0].RealRPM;
+                        break;
+                    }
+
                 case CABViewControlTypes.RPM:
                     {
                         var mstsDieselLocomotive = this as MSTSDieselLocomotive;
