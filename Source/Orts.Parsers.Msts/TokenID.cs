@@ -539,6 +539,7 @@ namespace Orts.Parsers.Msts
         GearBoxNumberOfGears,
         GearBoxDirectDriveGear,
         GearBoxMaxSpeedForGears,
+        GearBoxMinSpeedForGears,
         GearBoxFreeWheelForGears,
         GearBoxMaxTractiveForceForGears,
         GearBoxOverspeedPercentageForFailure,
