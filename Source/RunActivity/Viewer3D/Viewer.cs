@@ -568,6 +568,13 @@ namespace Orts.Viewer3D
                 TogglePlayerEngineCommand.Receiver = (MSTSDieselLocomotive)PlayerLocomotive;
                 VacuumExhausterCommand.Receiver = (MSTSDieselLocomotive)PlayerLocomotive;
                 ToggleElectricHeatingCommand.Receiver = (MSTSDieselLocomotive)PlayerLocomotive;
+
+                //** Circuit breaker command for Dual Mode consists
+                CircuitBreakerClosingOrderCommand.Receiver = (MSTSDieselLocomotive)PlayerLocomotive;
+                CircuitBreakerClosingOrderButtonCommand.Receiver = (MSTSDieselLocomotive)PlayerLocomotive;
+                CircuitBreakerOpeningOrderButtonCommand.Receiver = (MSTSDieselLocomotive)PlayerLocomotive;
+                CircuitBreakerClosingAuthorizationCommand.Receiver = (MSTSDieselLocomotive)PlayerLocomotive;
+
             }
 
             ImmediateRefillCommand.Receiver = (MSTSLocomotiveViewer)PlayerLocomotiveViewer;

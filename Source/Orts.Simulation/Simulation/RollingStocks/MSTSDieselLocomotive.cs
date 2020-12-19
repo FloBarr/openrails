@@ -47,6 +47,9 @@ using Event = Orts.Common.Event;
 
 using System.Collections.Generic;
 
+//** Ajout FB   **//
+using ORTS.Scripting.Api;
+
 namespace Orts.Simulation.RollingStocks
 {
     ///////////////////////////////////////////////////
@@ -1386,6 +1389,227 @@ namespace Orts.Simulation.RollingStocks
                     else
                         data = DieselLevelL;
                     break;
+                //** Recup d'infos electriques par une machine thermique    **//
+                case CABViewControlTypes.LINE_VOLTAGE:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            data = electricLoco.PowerSupply.PantographVoltageV;
+                            if (cvc.Units == CABViewControlUnits.KILOVOLTS)
+                                data /= 1000;
+
+                            break;
+                        }
+                    }
+
+                    break;
+
+                case CABViewControlTypes.PANTO_DISPLAY:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            data = electricLoco.Pantographs.State == PantographState.Up ? 1 : 0;
+                            break;
+                        }
+                    }
+                    break;
+
+                case CABViewControlTypes.PANTOGRAPH:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            data = electricLoco.Pantographs[1].CommandUp ? 1 : 0;
+                            break;
+                        }
+                    }
+                    break;
+
+                case CABViewControlTypes.PANTOGRAPH2:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            data = electricLoco.Pantographs[2].CommandUp ? 1 : 0;
+                            break;
+                        }
+                    }
+                    break;
+
+                case CABViewControlTypes.PANTOGRAPHS_4:
+                case CABViewControlTypes.PANTOGRAPHS_4C:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            if (electricLoco.Pantographs[1].CommandUp && electricLoco.Pantographs[2].CommandUp)
+                                data = 2;
+                            else if (electricLoco.Pantographs[1].CommandUp)
+                                data = 1;
+                            else if (electricLoco.Pantographs[2].CommandUp)
+                                data = 3;
+                            else
+                                data = 0;
+                            break;
+
+                        }
+                    }
+
+                    break;
+
+                case CABViewControlTypes.PANTOGRAPHS_5:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            if (electricLoco.Pantographs[1].CommandUp && electricLoco.Pantographs[2].CommandUp)
+                                data = 0; // TODO: Should be 0 if the previous state was Pan2Up, and 4 if that was Pan1Up
+                            else if (electricLoco.Pantographs[2].CommandUp)
+                                data = 1;
+                            else if (electricLoco.Pantographs[1].CommandUp)
+                                data = 3;
+                            else
+                                data = 2;
+                            break;
+
+                        }
+                    }
+                    break;
+
+                case CABViewControlTypes.ORTS_CIRCUIT_BREAKER_DRIVER_CLOSING_ORDER:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            data = electricLoco.PowerSupply.CircuitBreaker.DriverClosingOrder ? 1 : 0;
+                            break;
+
+                        }
+                    }
+                    break;
+
+                case CABViewControlTypes.ORTS_CIRCUIT_BREAKER_DRIVER_OPENING_ORDER:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            data = electricLoco.PowerSupply.CircuitBreaker.DriverOpeningOrder ? 1 : 0;
+                            break;
+                        }
+                    }
+                    break;
+
+                case CABViewControlTypes.ORTS_CIRCUIT_BREAKER_DRIVER_CLOSING_AUTHORIZATION:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            data = electricLoco.PowerSupply.CircuitBreaker.DriverClosingAuthorization ? 1 : 0; break;
+                        }
+                    }
+                    break;
+
+                case CABViewControlTypes.ORTS_CIRCUIT_BREAKER_STATE:
+                    foreach (var car in Train.Cars)
+                    {
+
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            switch (electricLoco.PowerSupply.CircuitBreaker.State)
+                            {
+                                case CircuitBreakerState.Open:
+                                    data = 0;
+                                    break;
+                                case CircuitBreakerState.Closing:
+                                    data = 1;
+                                    break;
+                                case CircuitBreakerState.Closed:
+                                    data = 2;
+                                    break;
+                            }
+                        }
+                    }
+                    break;
+
+                case CABViewControlTypes.ORTS_CIRCUIT_BREAKER_CLOSED:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            switch (electricLoco.PowerSupply.CircuitBreaker.State)
+                            {
+                                case CircuitBreakerState.Open:
+                                case CircuitBreakerState.Closing:
+                                    data = 0;
+                                    break;
+                                case CircuitBreakerState.Closed:
+                                    data = 1;
+                                    break;
+                            }
+                        }
+                    }
+                    break;
+
+                case CABViewControlTypes.ORTS_CIRCUIT_BREAKER_OPEN:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            switch (electricLoco.PowerSupply.CircuitBreaker.State)
+                            {
+                                case CircuitBreakerState.Open:
+                                case CircuitBreakerState.Closing:
+                                    data = 1;
+                                    break;
+                                case CircuitBreakerState.Closed:
+                                    data = 0;
+                                    break;
+                            }
+                        }
+                    }
+                    break;
+
+
+                case CABViewControlTypes.ORTS_CIRCUIT_BREAKER_AUTHORIZED:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            data = electricLoco.PowerSupply.CircuitBreaker.ClosingAuthorization ? 1 : 0;
+                            break;
+                        }
+                    }
+                    break;
+
+
+                case CABViewControlTypes.ORTS_CIRCUIT_BREAKER_OPEN_AND_AUTHORIZED:
+                    foreach (var car in Train.Cars)
+                    {
+                        if (car is MSTSElectricLocomotive)
+                        {
+                            var electricLoco = car as MSTSElectricLocomotive;
+                            data = (electricLoco.PowerSupply.CircuitBreaker.State < CircuitBreakerState.Closed && electricLoco.PowerSupply.CircuitBreaker.ClosingAuthorization) ? 1 : 0;
+                            break;
+                        }
+                    }
+                    break;
+
+
                 default:
                     data = base.GetDataOf(cvc);
                     break;
