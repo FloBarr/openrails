@@ -968,11 +968,11 @@ namespace Orts.Simulation.RollingStocks
                 {
                     if (IsMetric)
                     {
-                        Simulator.Confirmer.Information(DCMotorAmpToFlowFactor + ", Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
+//                        Simulator.Confirmer.Information(DCMotorAmpToFlowFactor + ", Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
                     }
                     else
                     {
-                        Simulator.Confirmer.Information(DCMotorAmpToFlowFactor + ", Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
+//                        Simulator.Confirmer.Information(DCMotorAmpToFlowFactor + ", Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
                     }
                 }
 
@@ -986,32 +986,53 @@ namespace Orts.Simulation.RollingStocks
             else
             {
                 //** Throttle =0, line contactors opened, no voltage                                                **//
-                DemandedVoltage = 0;
-                Voltage = 0;
-                TotalR = R + ShuntedR;
+                if((this.DieselEngines[0].IsHeatingRPMCommand() == true)&&(IsLeadLocomotive()==true))
+                {
+                    Simulator.Confirmer.Information("Heating!");
+                    DemandedVoltage = GeneratorVoltage;
+                    if(Voltage<DemandedVoltage)
+                    {
+                        Voltage += 5;
+                    }
+                    TotalR = R + ShuntedR;
+                }
+                else
+                {
+                    DemandedVoltage = 0;
+                    Voltage = 0;
+                    TotalR = R + ShuntedR;
+                }
             }
 
             //** Calculating amperage using voltage, prev voltage, Resistance and inductance
             if (AbsSpeedMpS > 0)
             {
 
-                UInductor = PrevVoltage - PrevBackEMF;
+                if ((this.DieselEngines[0].IsHeatingRPMCommand() == true) && (ThrottlePercent == 0))
+                {
+                    UInductor = 0;
+                    IInductor = 0;
+                }
+                else
+                {
+                    UInductor = PrevVoltage - PrevBackEMF;
 
-                if (UInductor > Voltage)
-                    UInductor = Voltage;   //** Impossible to have a UInductor > Voltage!      **//
+                    if (UInductor > Voltage)
+                        UInductor = Voltage;   //** Impossible to have a UInductor > Voltage!      **//
 
-                //** New current is calculated                                                                      **//
-                IInductor = (PrevUInductor - (TotalR) * PrevIInductor) * (1 / (Inductance * TimeResponse)) + PrevIInductor;
-                //** And verified, if exceeding MaxCurrent, limited to this value                                   **//
-                //** In a perfect world, if exceeding value, should open line contactor or damage motors            **//
-                if (IInductor > MaxCurrentA / (DCMotorNumber))
-                    IInductor = (MaxCurrentA / DCMotorNumber);
-
+                    //** New current is calculated                                                                      **//
+                    IInductor = (PrevUInductor - (TotalR) * PrevIInductor) * (1 / (Inductance * TimeResponse)) + PrevIInductor;
+                    //** And verified, if exceeding MaxCurrent, limited to this value                                   **//
+                    //** In a perfect world, if exceeding value, should open line contactor or damage motors            **//
+                    if (IInductor > MaxCurrentA / (DCMotorNumber))
+                        IInductor = (MaxCurrentA / DCMotorNumber);
+                }
 
             }
             else
             {
-                UInductor = Voltage;
+                if ((this.DieselEngines[0].IsHeatingRPMCommand() == true) && (ThrottlePercent == 0)) UInductor = 0;
+                else UInductor = Voltage;
                 IInductor = (PrevUInductor - (TotalR) * PrevIInductor) * (1 / (Inductance * TimeResponse)) + PrevIInductor;
 
                 if (IInductor > MaxCurrentA / (DCMotorNumber)) IInductor = (MaxCurrentA / DCMotorNumber);
@@ -1021,12 +1042,12 @@ namespace Orts.Simulation.RollingStocks
                 {
                     if (IsMetric)
                     {
-                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total)");
+//                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total)");
 
                     }
                     else
                     {
-                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
+//                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
                     }
                 }
             }
@@ -1281,6 +1302,8 @@ namespace Orts.Simulation.RollingStocks
 
             //** Force to be displayed                              **//
             DisplayedMotiveForceN = TractiveForceN;
+ //           if (IsLeadLocomotive() == true) Simulator.Confirmer.Information("Index : " + (this.GearBox.CurrentGearIndex));
+
         }
 
         /// <summary>
@@ -1559,11 +1582,14 @@ namespace Orts.Simulation.RollingStocks
                     //                   Console.WriteLine(CarCount+" cars to heat");
                     foreach (var de in this.DieselEngines)
                     {
-                        if ((de.HeatingRPM != 0) && (de.RealRPM >= (de.HeatingRPM * 0.9)))
+                        if ((de.HeatingRPM != 0) && (de.RealRPM >= (de.HeatingRPM * 0.9)))  // à intégrer, tension minimale de chauffage
                         {
-                            de.MaximumDieselPowerW -= (CarCount * 40000);
+                            Simulator.Confirmer.Information("Heating On, " + CarCount + " cars to heat, " + (CarCount * 40000) + "W taken on Diesel Max Power ("+ de.MaximumDieselPowerW + ")");
+                            de.CurrentDieselOutputPowerW -= (CarCount * 40000);
                         }
                     }
+                    
+
                 }
             }
 
@@ -1614,11 +1640,13 @@ namespace Orts.Simulation.RollingStocks
             {
                 Trace.TraceInformation(HeatingRPMCalls + " : On");
                 this.DieselEngines.DEList[0].HeatingRPMCommand(true);
+                Train.CarElectricHeatOn = true;
             }
             else
             {
                 Trace.TraceInformation(HeatingRPMCalls + " : Off");
                 this.DieselEngines.DEList[0].HeatingRPMCommand(false);
+                Train.CarElectricHeatOn = false;
             }
         }
 

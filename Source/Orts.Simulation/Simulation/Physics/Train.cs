@@ -190,7 +190,7 @@ namespace Orts.Simulation.Physics
         public bool TrainHeatingBoilerInitialised = false;
 
         // Carriage Electric Heating
-        public bool CarElectricHeatOn = false;    // Is steam heating turned on
+        public bool CarElectricHeatOn = false;    // Is electric heating turned on
 
         // Values for Wind Direction and Speed - needed for wind resistance and lateral force
         public float PhysicsWindDirectionDeg;

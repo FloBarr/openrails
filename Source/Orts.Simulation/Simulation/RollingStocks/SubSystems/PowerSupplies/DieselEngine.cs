@@ -967,7 +967,9 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
             HeatingRPMCalls++;
             if (HeatingOnOff==true)
             {
+                
                 Trace.TraceInformation(HeatingRPMCalls+" : Heating set to " + HeatingRPM);
+                IdleRPMSave = IdleRPM;
                 IdleRPM = HeatingRPM;
                 RPMRange = MaxRPM - IdleRPM;
             }
@@ -1051,7 +1053,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                     HeatingDemandedThrottlePercent = HeatingPercent + (((100 - HeatingPercent) / 100) * demandedThrottlePercent);
                     DemandedRPM = ThrottleRPMTab[HeatingDemandedThrottlePercent];
 
-//                    Trace.TraceInformation("Heating RPM : " + DemandedRPM);
+//                    Trace.TraceInformation("Heating RPM : " + DemandedRPM+" ( Idle original"+ IdleRPMSave + "rpm)");
                 }
                 //** No Heating                                                     **//
                 else DemandedRPM = ThrottleRPMTab[demandedThrottlePercent];
@@ -1069,11 +1071,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                 {
                     if (GearBox.IsClutchOn)
                     {
-<<<<<<< HEAD
-                        if (DemandedRPM >= GearBox.ShaftRPM)
-=======
                         if ((DemandedRPM >= GearBox.ShaftRPM)||(GearBox.CurrentGear.FreeWheel==false))
->>>>>>> Gearbox Freewheel add
                         {
                             DemandedRPM = GearBox.ShaftRPM;
                         }
