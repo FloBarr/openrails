@@ -1071,15 +1071,37 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                 {
                     if (GearBox.IsClutchOn)
                     {
-                        if ((DemandedRPM >= GearBox.ShaftRPM)||(GearBox.CurrentGear.FreeWheel==false))
+                        if ((DemandedRPM >= GearBox.ShaftRPM) || (GearBox.CurrentGear.FreeWheel == false))
                         {
-                            DemandedRPM = GearBox.ShaftRPM;
+                            if (GearBox.AdvancedGearBox == false)
+                                DemandedRPM = GearBox.ShaftRPM;
+                            else if (GearBox.ShaftRPM < IdleRPM)
+                                DemandedRPM = IdleRPM;
+                            else DemandedRPM = GearBox.ShaftRPM;
                         }
                         else
                         {
                             DemandedRPM = ThrottleRPMTab[demandedThrottlePercent];
                         }
                     }
+                    else
+                    {
+                        if ((GearBox.AdvancedGearBox == false) || ((GearBox.AdvancedGearBox == true) && (GearBox.CurrentGear.Converter == true)))
+                            DemandedRPM = ThrottleRPMTab[demandedThrottlePercent];
+                        else
+                        {
+                            //** Must insert coupler speed elevation, not only Idle speed until shaft speed reaches diesel speed
+
+                            DemandedRPM = IdleRPM+(ThrottleRPMTab[demandedThrottlePercent] - IdleRPM)*((locomotive.SpeedMpS/ GearBox.Gears[GearBox.CurrentGearIndex].MaxSpeedMpS));
+                            Trace.TraceInformation("Values : " + locomotive.SpeedMpS+" / "+DemandedRPM);
+                        }
+                    }
+
+                    if (GearBox.SpeedChanging == true)
+                    {
+                        DemandedRPM = IdleRPM;
+                    }
+
                 }
             }
 

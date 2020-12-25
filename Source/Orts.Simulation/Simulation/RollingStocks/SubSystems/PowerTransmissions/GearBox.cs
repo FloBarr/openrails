@@ -17,12 +17,17 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
         public List<float> GearBoxMaxSpeedForGearsMpS = new List<float>();
         public List<float> GearBoxMinSpeedForGearsMpS = new List<float>();
         public List<bool> GearBoxFreeWheelForGears = new List<bool>();
+        public List<bool> GearBoxHydroIsConverter = new List<bool>();
         public List<float> GearBoxMaxTractiveForceForGearsN = new List<float>();
         public float GearBoxOverspeedPercentageForFailure = 150f;
         public float GearBoxBackLoadForceN = 1000;
         public float GearBoxCoastingForceN = 500;
         public float GearBoxUpGearProportion = 0.85f;
         public float GearBoxDownGearProportion = 0.35f;
+
+        public float GearBoxTimeForSpeedChange = 0.00f;
+        public bool GearBoxSpeedChanging = false;
+        public float GearBoxElapsedTimeForSpeedChange = 0.0f;
 
         int initLevel;
 
@@ -43,12 +48,17 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
             GearBoxMaxSpeedForGearsMpS = new List<float>(copy.GearBoxMaxSpeedForGearsMpS);
             GearBoxMinSpeedForGearsMpS = new List<float>(copy.GearBoxMinSpeedForGearsMpS);
             GearBoxFreeWheelForGears = new List<bool>(copy.GearBoxFreeWheelForGears);
+            GearBoxHydroIsConverter = new List<bool>(copy.GearBoxHydroIsConverter);
             GearBoxMaxTractiveForceForGearsN = new List<float>(copy.GearBoxMaxTractiveForceForGearsN);
             GearBoxOverspeedPercentageForFailure = copy.GearBoxOverspeedPercentageForFailure;
             GearBoxBackLoadForceN = copy.GearBoxBackLoadForceN;
             GearBoxCoastingForceN = copy.GearBoxCoastingForceN;
             GearBoxUpGearProportion = copy.GearBoxUpGearProportion;
             GearBoxDownGearProportion = copy.GearBoxDownGearProportion;
+            GearBoxSpeedChanging = copy.GearBoxSpeedChanging;
+            GearBoxTimeForSpeedChange = copy.GearBoxTimeForSpeedChange;
+            GearBoxElapsedTimeForSpeedChange = copy.GearBoxElapsedTimeForSpeedChange;
+
             initLevel = copy.initLevel;
         }
 
@@ -63,6 +73,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                     {
                         bool BoolValue = false;
                         GearBoxFreeWheelForGears.Add(BoolValue);
+                        GearBoxHydroIsConverter.Add(BoolValue);
                     }
                     break;
                 case "engine(gearboxdirectdrivegear": GearBoxDirectDriveGear = stf.ReadIntBlock(1); break; // initLevel++; break;
@@ -118,8 +129,9 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                         {
                              GearBoxMinSpeedForGearsMpS.Add(stf.ReadFloat(STFReader.UNITS.SpeedDefaultMPH, 10.0f));
                         }
+                        Trace.TraceInformation("Min Speeds found");
                         stf.SkipRestOfBlock();
-                        initLevel++;
+//                        initLevel++;
                     }
                     break;
                 case "engine(gearboxfreewheelforgears":
@@ -139,9 +151,30 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                             GearBoxFreeWheelForGears.Add(BoolValue);
                         }
                         stf.SkipRestOfBlock();
-                        initLevel++;
+//                        initLevel++;
                     }
                     break;
+                case "engine(gearboxhydroisconverter":
+                    temp = stf.ReadItem();
+                    if (temp == ")")
+                    {
+                        stf.StepBackOneItem();
+                    }
+                    if (temp == "(")
+                    {
+                        GearBoxHydroIsConverter.Clear();
+                        for (int i = 0; i < GearBoxNumberOfGears; i++)
+                        {
+                            bool BoolValue = false;
+                            int Value = stf.ReadInt(0);
+                            if (Value == 1) BoolValue = true;
+                            GearBoxHydroIsConverter.Add(BoolValue);
+                        }
+                        stf.SkipRestOfBlock();
+//                        initLevel++;
+                    }
+                    break;
+                    
                 case "engine(gearboxmaxtractiveforceforgears":
                     temp = stf.ReadItem();
                     if (temp == ")")
@@ -157,6 +190,11 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                         initLevel++;
                     }
                     break;
+                case "engine(gearboxtimeforspeedchange": 
+                    GearBoxTimeForSpeedChange = stf.ReadFloatBlock(STFReader.UNITS.Time, 0.0f);
+ //                   Trace.TraceInformation("Time for Speed Change : " + GearBoxTimeForSpeedChange);
+                    break;
+
                 case "engine(gearboxoverspeedpercentageforfailure": GearBoxOverspeedPercentageForFailure = stf.ReadFloatBlock(STFReader.UNITS.None, 150f); break; // initLevel++; break;
                 case "engine(gearboxbackloadforce": GearBoxBackLoadForceN = stf.ReadFloatBlock(STFReader.UNITS.Force, 0f); break;
                 case "engine(gearboxcoastingforce": GearBoxCoastingForceN = stf.ReadFloatBlock(STFReader.UNITS.Force, 0f); break;
@@ -238,7 +276,12 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                     if(++nextGearIndex >= Gears.Count)
                         nextGearIndex =  (Gears.Count - 1);
                     else
+                    {
                         gearedUp = true;
+//                        Trace.TraceInformation("Speed Up");
+                        if (currentGearIndex>=0)
+                            SpeedChanging = true;
+                    }
                 }
                 else
                     gearedUp = false;
@@ -248,17 +291,30 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
 
         public bool AutoGearDown()
         {
-            if (clutch < 0.05f)
+            if ((clutch < 0.05f)||(CurrentGear.MaxSpeedMpS != CurrentGear.MinSpeedMpS))  // using clutch, or speed trigger if defined
             {
                 if (!gearedDown)
                 {
-                    if(--nextGearIndex <= 0)
-                        nextGearIndex =  0;
+                    if (--nextGearIndex <= 0)
+                    {
+                        nextGearIndex = 0;
+                    }
                     else
+                    {
+ //                       Trace.TraceInformation("GearedDown = true, speed = "+CurrentSpeedMpS+" mph");
                         gearedDown = true;
+                        if (currentGearIndex>=0)
+                        {
+                            SpeedChanging = true;
+                        }
+                    }
+                        
                 }
                 else
+                {
                     gearedDown = false;
+                }
+                    
             }
             return gearedDown;
         }
@@ -278,10 +334,12 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                 {
                     if (ShaftRPM >= (CurrentGear.DownGearProportion * DieselEngine.MaxRPM))
                         clutchOn = true;
+                    //** If the current gear is a couple converter, the "clutch" is always off
+                    if (CurrentGear.Converter == true) clutchOn = false;
                 }
                 if (ShaftRPM < DieselEngine.StartingRPM)
                     clutchOn = false;
-                
+
                 return clutchOn;
             }
         }
@@ -343,6 +401,11 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
 
         public GearBoxOperation GearBoxOperation = GearBoxOperation.Manual;
         public GearBoxOperation OriginalGearBoxOperation = GearBoxOperation.Manual;
+
+        public bool AdvancedGearBox = false;
+        public float TimeForSpeedChange;
+        public float ElapsedTimeForSpeedChanging;
+        public bool SpeedChanging;
 
         public float TractiveForceN
         {
@@ -423,8 +486,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                 if (Gears[iGear].MaxSpeedMpS < CurrentSpeedMpS) continue;
                 else currentGearIndex = nextGearIndex = iGear;
                 break;
-             } 
-
+            } 
             gearedUp = false;
             gearedDown = false;
             clutchOn = true;
@@ -454,7 +516,9 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                     Gears[i].IsDirectDriveGear = (mstsParams.GearBoxDirectDriveGear == mstsParams.GearBoxNumberOfGears);
                     Gears[i].MaxSpeedMpS = mstsParams.GearBoxMaxSpeedForGearsMpS[i];
                     Gears[i].MinSpeedMpS = mstsParams.GearBoxMinSpeedForGearsMpS[i];
+                    if (Gears[i].MinSpeedMpS != Gears[i].MaxSpeedMpS) AdvancedGearBox = true;
                     Gears[i].FreeWheel = mstsParams.GearBoxFreeWheelForGears[i];
+                    Gears[i].Converter = mstsParams.GearBoxHydroIsConverter[i];
                     Gears[i].MaxTractiveForceN = mstsParams.GearBoxMaxTractiveForceForGearsN[i];
                     Gears[i].OverspeedPercentage = mstsParams.GearBoxOverspeedPercentageForFailure;
                     Gears[i].UpGearProportion = mstsParams.GearBoxUpGearProportion;
@@ -462,25 +526,44 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                 }
                 GearBoxOperation = mstsParams.GearBoxOperation;
                 OriginalGearBoxOperation = mstsParams.GearBoxOperation;
+
+                SpeedChanging= mstsParams.GearBoxSpeedChanging;
+                TimeForSpeedChange = mstsParams.GearBoxTimeForSpeedChange;
+                ElapsedTimeForSpeedChanging = mstsParams.GearBoxElapsedTimeForSpeedChange;
+
             }
         }
 
         public void Update(float elapsedClockSeconds)
         {
-            if ((clutch <= 0.05) || (clutch >= 1f))
+            if((SpeedChanging==true)&&(TimeForSpeedChange>ElapsedTimeForSpeedChanging))
+            {
+                ElapsedTimeForSpeedChanging += elapsedClockSeconds;
+ //               Trace.TraceInformation("Speed Change : next speed is " + currentGearIndex + " in " + (TimeForSpeedChange - ElapsedTimeForSpeedChanging));
+
+                if (ElapsedTimeForSpeedChanging> TimeForSpeedChange)
+                {
+                    SpeedChanging = false;
+                    ElapsedTimeForSpeedChanging = 0;
+                }
+            }
+           
+            if (((clutch <= 0.05) || (clutch >= 1f))||(AdvancedGearBox==true))
             {
                 if (currentGearIndex < nextGearIndex)
                 {
                     DieselEngine.locomotive.SignalEvent(Event.GearUp);
                     currentGearIndex = nextGearIndex;
+                    Trace.TraceInformation("Signal send: Gearing Up to "+currentGearIndex);
                 }
             }
-            if ((clutch <= 0.05) || (clutch >= 0.5f))
+            if (((clutch <= 0.05) || (clutch >= 0.5f))|| (AdvancedGearBox == true))
             {
                 if (currentGearIndex > nextGearIndex)
                 {
                     DieselEngine.locomotive.SignalEvent(Event.GearDown);
                     currentGearIndex = nextGearIndex;
+                    Trace.TraceInformation("Signal send: Gearing Down to " + currentGearIndex);
                 }
             }
 
@@ -499,12 +582,15 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                     case GearBoxOperation.Semiautomatic:
                         if ((CurrentGear != null))
                         {
-                            if (CurrentGear.MinSpeedMpS != CurrentGear.MaxSpeedMpS)
+                            if (AdvancedGearBox==true)
                             {
-                                if ((CurrentSpeedMpS > (CurrentGear.MaxSpeedMpS)))
+                                if ((CurrentSpeedMpS > (CurrentGear.MaxSpeedMpS*(0.5+(0.5* (DieselEngine.locomotive.ThrottlePercent/100))))))
                                     AutoGearUp();
-                                else if ((CurrentSpeedMpS < (CurrentGear.MinSpeedMpS)))
+                                else if ((CurrentSpeedMpS < (CurrentGear.MinSpeedMpS * (0.5 + (0.5 * (DieselEngine.locomotive.ThrottlePercent/100))))))
+                                {
                                     AutoGearDown();
+                                }
+                                    
                                 else
                                     AutoAtGear();
                             }
@@ -589,6 +675,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
         public float UpGearProportion;
         public float DownGearProportion;
         public bool FreeWheel;
+        public bool Converter;
 
         public float Ratio = 1f;
 
