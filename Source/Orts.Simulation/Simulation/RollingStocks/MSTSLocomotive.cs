@@ -376,6 +376,8 @@ namespace Orts.Simulation.RollingStocks
         protected bool DynamicBrakeBlendingForceMatch = true; // if true, dynamic brake blending tries to achieve the same braking force as the airbrake would have.
 
         public CombinedControl CombinedControlType;
+        public CombinedControl CombinedSecondControlType;
+
         public float CombinedControlSplitPosition;
         public bool HasSmoothStruc;
 
@@ -414,6 +416,8 @@ namespace Orts.Simulation.RollingStocks
         public MSTSNotchController SteamHeatController = new MSTSNotchController(0, 1, 0.1f);
 
         public MSTSNotchController ThrottleController;
+        public MSTSNotchController SecondThrottleController;
+
         public ScriptedBrakeController TrainBrakeController;
         public ScriptedBrakeController EngineBrakeController;
         public ScriptedBrakeController BrakemanBrakeController;
@@ -811,6 +815,7 @@ namespace Orts.Simulation.RollingStocks
                     break;
 
                 case "engine(enginecontrollers(throttle": ThrottleController = new MSTSNotchController(stf); break;
+                case "engine(enginecontrollers(secondthrottle": SecondThrottleController = new MSTSNotchController(stf); break;
                 case "engine(enginecontrollers(regulator": ThrottleController = new MSTSNotchController(stf); break;
                 case "engine(enginecontrollers(brake_dynamic": DynamicBrakeController.Parse(stf); break;
 
@@ -1008,6 +1013,7 @@ namespace Orts.Simulation.RollingStocks
             DynamicBrakeForceCurves = locoCopy.DynamicBrakeForceCurves;
             DynamicBrakeAutoBailOff = locoCopy.DynamicBrakeAutoBailOff;
             CombinedControlType = locoCopy.CombinedControlType;
+            CombinedSecondControlType= locoCopy.CombinedSecondControlType;
             CombinedControlSplitPosition = locoCopy.CombinedControlSplitPosition;
             DynamicBrakeDelayS = locoCopy.DynamicBrakeDelayS;
             MaxDynamicBrakeForceN = locoCopy.MaxDynamicBrakeForceN;
@@ -1640,7 +1646,20 @@ namespace Orts.Simulation.RollingStocks
             if (!AdvancedAdhesionModel)  // Advanced adhesion model turned off.
                AbsWheelSpeedMpS = AbsSpeedMpS;
 
-            UpdateTractiveForce(elapsedClockSeconds, t, AbsSpeedMpS, AbsWheelSpeedMpS);
+            if(this is MSTSElectricLocomotive)
+            {
+                if ((this as MSTSElectricLocomotive).UseDCMotorForce == true)
+                {
+                    (this as MSTSElectricLocomotive).UpdateDCMotorCurrent(elapsedClockSeconds);
+                    MotiveForceN = (this as MSTSElectricLocomotive).NewMotiveForceN;
+                    float w = (ContinuousForceTimeFactor - elapsedClockSeconds) / ContinuousForceTimeFactor;
+                    if (w < 0)
+                        w = 0;
+                    AverageForceN = w * AverageForceN + (1 - w) * MotiveForceN;
+                }
+                else UpdateMotiveForce(elapsedClockSeconds, t, AbsSpeedMpS, AbsWheelSpeedMpS);
+            }
+            else UpdateTractiveForce(elapsedClockSeconds, t, AbsSpeedMpS, AbsWheelSpeedMpS);
 
             ApplyDirectionToTractiveForce();
 
@@ -2961,6 +2980,21 @@ namespace Orts.Simulation.RollingStocks
             AlerterReset(TCSEvent.ThrottleChanged);
             CommandStartTime = Simulator.ClockTime;
         }
+        public void StartSecondThrottleIncrease(float? target)
+        {
+            Trace.TraceInformation("Second Throttle : Min-" + SecondThrottleController.MinimumValue+" / Actuelle-"+SecondThrottleController.CurrentValue + " / cible-" + target+ " / Max-"+ SecondThrottleController.MaximumValue+" / Noeuds "+SecondThrottleController.NotchCount());
+
+            if (SecondThrottleController.CurrentValue >= SecondThrottleController.MaximumValue)
+                return;
+
+            if (target != null) SecondThrottleController.StartIncrease(target);
+            else new NotchedSecondThrottleCommand(Simulator.Log, true);
+ //           else new NotchedThrottleCommand(Simulator.Log, true);
+
+            SignalEvent(Event.SecondThrottleChange);
+            AlerterReset(TCSEvent.ThrottleChanged);
+            CommandStartTime = Simulator.ClockTime;
+        }
 
         public void StartThrottleIncrease()
         {
@@ -2982,6 +3016,28 @@ namespace Orts.Simulation.RollingStocks
                 StartThrottleIncrease(ThrottleController.SmoothMax());
         }
 
+        public void StartSecondThrottleIncrease()
+        {
+
+            if (DynamicBrakePercent >= 0 || !(DynamicBrakePercent == -1 && !DynamicBrake || DynamicBrakePercent >= 0 && DynamicBrake))
+            {
+                if (!(CombinedSecondControlType == CombinedControl.ThrottleDynamic
+                    || CombinedControlType == CombinedControl.ThrottleAir && TrainBrakeController.CurrentValue > 0))
+                {
+                    Simulator.Confirmer.Warning(CabControl.Throttle, CabSetting.Warn1);
+                    return;
+                }
+            }
+
+            if (CombinedSecondControlType == CombinedControl.ThrottleDynamic && DynamicBrake)
+                StartDynamicBrakeDecrease(null);
+            else if (CombinedSecondControlType == CombinedControl.ThrottleAir && TrainBrakeController.CurrentValue > 0)
+                StartTrainBrakeDecrease(null);
+            else
+                StartSecondThrottleIncrease(SecondThrottleController.SmoothMax());
+        }
+
+
         public void StopThrottleIncrease()
         {
             AlerterReset(TCSEvent.ThrottleChanged);
@@ -2993,6 +3049,19 @@ namespace Orts.Simulation.RollingStocks
                 StopTrainBrakeDecrease();
             else if (ThrottleController.SmoothMax() != null)
                 new ContinuousThrottleCommand(Simulator.Log, true, ThrottleController.CurrentValue, CommandStartTime);
+        }
+
+        public void StopSecondThrottleIncrease()
+        {
+            AlerterReset(TCSEvent.ThrottleChanged);
+            SecondThrottleController.StopIncrease();
+
+            if (CombinedSecondControlType == CombinedControl.ThrottleDynamic)
+                StopDynamicBrakeDecrease();
+            else if (CombinedSecondControlType == CombinedControl.ThrottleAir)
+                StopTrainBrakeDecrease();
+            else if (SecondThrottleController.SmoothMax() != null)
+                new ContinuousThrottleCommand(Simulator.Log, true, SecondThrottleController.CurrentValue, CommandStartTime);
         }
 
         public void StartThrottleDecrease(float? target)
@@ -3008,6 +3077,20 @@ namespace Orts.Simulation.RollingStocks
             CommandStartTime = Simulator.ClockTime;
         }
 
+        public void StartSecondThrottleDecrease(float? target)
+        {
+            if (SecondThrottleController.CurrentValue <= SecondThrottleController.MinimumValue)
+                return;
+
+            if (target != null) SecondThrottleController.StartDecrease(target);
+            else new NotchedSecondThrottleCommand(Simulator.Log, false);
+//            else new NotchedThrottleCommand(Simulator.Log, false);
+
+            SignalEvent(Event.SecondThrottleChange);
+            AlerterReset(TCSEvent.ThrottleChanged);
+            CommandStartTime = Simulator.ClockTime;
+        }
+
         public void StartThrottleDecrease()
         {
             if (CombinedControlType == CombinedControl.ThrottleDynamic && ThrottleController.CurrentValue <= 0)
@@ -3016,6 +3099,15 @@ namespace Orts.Simulation.RollingStocks
                 StartTrainBrakeIncrease(null);
             else
                 StartThrottleDecrease(ThrottleController.SmoothMin());
+        }
+        public void StartSecondThrottleDecrease()
+        {
+            if (CombinedSecondControlType == CombinedControl.ThrottleDynamic && SecondThrottleController.CurrentValue <= 0)
+                StartDynamicBrakeIncrease(null);
+            else if (CombinedSecondControlType == CombinedControl.ThrottleAir && SecondThrottleController.CurrentValue <= 0)
+                StartTrainBrakeIncrease(null);
+            else
+                StartSecondThrottleDecrease(ThrottleController.SmoothMin());
         }
 
         public void StopThrottleDecrease()
@@ -3030,7 +3122,18 @@ namespace Orts.Simulation.RollingStocks
             if (ThrottleController.SmoothMin() != null)
                 new ContinuousThrottleCommand(Simulator.Log, false, ThrottleController.CurrentValue, CommandStartTime);
         }
+        public void StopSecondThrottleDecrease()
+        {
+            AlerterReset(TCSEvent.ThrottleChanged);
+            SecondThrottleController.StopDecrease();
 
+            if (CombinedSecondControlType == CombinedControl.ThrottleDynamic)
+                StopDynamicBrakeIncrease();
+            else if (CombinedSecondControlType == CombinedControl.ThrottleAir)
+                StopTrainBrakeIncrease();
+            if (ThrottleController.SmoothMin() != null)
+                new ContinuousThrottleCommand(Simulator.Log, false, SecondThrottleController.CurrentValue, CommandStartTime);
+        }
         //Steam Heat Controller
 
         #region Steam heating controller
@@ -3142,6 +3245,27 @@ namespace Orts.Simulation.RollingStocks
         }
 
         /// <summary>
+        /// Used by commands to start a continuous adjustment.
+        /// </summary>
+        public void SecondThrottleChangeTo(bool increase, float? target)
+        {
+            if (increase)
+            {
+                if (target > SecondThrottleController.CurrentValue)
+                {
+                    StartSecondThrottleIncrease(target);
+                }
+            }
+            else
+            {
+                if (target < SecondThrottleController.CurrentValue)
+                {
+                    StartSecondThrottleDecrease(target);
+                }
+            }
+        }
+
+        /// <summary>
         /// Used by commands to make a single adjustment.
         /// </summary>
         public void AdjustNotchedThrottle(bool increase)
@@ -3157,6 +3281,24 @@ namespace Orts.Simulation.RollingStocks
                 ThrottleController.StopDecrease();
             }
             Simulator.Confirmer.ConfirmWithPerCent(CabControl.Throttle, ThrottleController.CurrentValue * 100);
+        }
+
+        /// <summary>
+        /// Used by commands to make a single adjustment.
+        /// </summary>
+        public void AdjustSecondNotchedThrottle(bool increase)
+        {
+            if (increase)
+            {
+                SecondThrottleController.StartIncrease();
+                SecondThrottleController.StopIncrease();
+            }
+            else
+            {
+                SecondThrottleController.StartDecrease();
+                SecondThrottleController.StopDecrease();
+            }
+            Simulator.Confirmer.ConfirmWithPerCent(CabControl.Throttle, SecondThrottleController.CurrentValue * 100);
         }
 
         public void SetThrottleValue(float value)
@@ -3201,6 +3343,17 @@ namespace Orts.Simulation.RollingStocks
 
         }
 
+        public void SecondThrottleToZero()
+        {
+            if (CombinedControlType == CombinedControl.ThrottleDynamic && SecondThrottleController.CurrentValue <= 0)
+                StartDynamicBrakeIncrease(null);
+            else if (CombinedControlType == CombinedControl.ThrottleAir && SecondThrottleController.CurrentValue <= 0)
+                StartTrainBrakeIncrease(null);
+            else
+                StartSecondThrottleToZero(0.0f);
+
+        }
+
         public void StartThrottleToZero(float? target)
         {
             if (ThrottleController.CurrentValue <= ThrottleController.MinimumValue)
@@ -3208,6 +3361,18 @@ namespace Orts.Simulation.RollingStocks
 
             ThrottleController.StartDecrease(target, true);
             if (ThrottleController.NotchCount() <= 0) SignalEvent(Event.ThrottleChange);
+            AlerterReset(TCSEvent.ThrottleChanged);
+            CommandStartTime = Simulator.ClockTime;
+        }
+
+        public void StartSecondThrottleToZero(float? target)
+        {
+            Simulator.Confirmer.Information("Second Throttle to Zero ("+ SecondThrottleController.CurrentValue+"->"+target + ")");
+            if (SecondThrottleController.CurrentValue <= SecondThrottleController.MinimumValue)
+                return;
+
+            SecondThrottleController.StartDecrease(target, true);
+            if (SecondThrottleController.NotchCount() <= 0) SignalEvent(Event.SecondThrottleChange);
             AlerterReset(TCSEvent.ThrottleChanged);
             CommandStartTime = Simulator.ClockTime;
         }

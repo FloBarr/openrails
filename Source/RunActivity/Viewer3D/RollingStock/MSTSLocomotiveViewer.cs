@@ -140,6 +140,11 @@ namespace Orts.Viewer3D.RollingStock
             UserInputCommands.Add(UserCommand.ControlThrottleIncrease, new Action[] { () => Locomotive.StopThrottleIncrease(), () => Locomotive.StartThrottleIncrease() });
             UserInputCommands.Add(UserCommand.ControlThrottleDecrease, new Action[] { () => Locomotive.StopThrottleDecrease(), () => Locomotive.StartThrottleDecrease() });
             UserInputCommands.Add(UserCommand.ControlThrottleZero, new Action[] { Noop, () => Locomotive.ThrottleToZero() });
+
+            UserInputCommands.Add(UserCommand.ControlSecondThrottleIncrease, new Action[] { () => Locomotive.StopSecondThrottleIncrease(), () => Locomotive.StartSecondThrottleIncrease() });
+            UserInputCommands.Add(UserCommand.ControlSecondThrottleDecrease, new Action[] { () => Locomotive.StopSecondThrottleDecrease(), () => Locomotive.StartSecondThrottleDecrease() });
+            UserInputCommands.Add(UserCommand.ControlSecondThrottleZero, new Action[] { Noop, () => Locomotive.SecondThrottleToZero() });
+
             UserInputCommands.Add(UserCommand.ControlGearUp, new Action[] { () => StopGearBoxIncrease(), () => StartGearBoxIncrease() });
             UserInputCommands.Add(UserCommand.ControlGearDown, new Action[] { () => StopGearBoxDecrease(), () => StartGearBoxDecrease() });
             UserInputCommands.Add(UserCommand.ControlTrainBrakeIncrease, new Action[] { () => Locomotive.StopTrainBrakeIncrease(), () => Locomotive.StartTrainBrakeIncrease(null) });

@@ -117,6 +117,12 @@
         [GetString("Control Throttle Increase")] ControlThrottleIncrease,
         [GetString("Control Throttle Decrease")] ControlThrottleDecrease,
         [GetString("Control Throttle Zero")] ControlThrottleZero,
+
+        //** Added for test: 2nd Throttle Control
+        [GetString("Control Second Throttle Increase")] ControlSecondThrottleIncrease,
+        [GetString("Control Second Throttle Decrease")] ControlSecondThrottleDecrease,
+        [GetString("Control Second Throttle Zero")] ControlSecondThrottleZero,
+
         [GetString("Control Gear Up")] ControlGearUp,
         [GetString("Control Gear Down")] ControlGearDown,
         [GetString("Control Train Brake Increase")] ControlTrainBrakeIncrease,
@@ -164,6 +170,7 @@
         [GetString("Control Headlight Decrease")] ControlHeadlightDecrease,
         //** Added for test: Electric heating
         [GetString("Control Electric Heating")] ControlElectricHeating,
+
 
         [GetString("Control Injector 1 Increase")] ControlInjector1Increase,
         [GetString("Control Injector 1 Decrease")] ControlInjector1Decrease,

@@ -395,6 +395,11 @@ namespace ORTS.Settings
             Commands[(int)UserCommand.ControlHeadlightIncrease] = new UserCommandKeyInput(0x23);
             //** Added for Electric Heating 
             Commands[(int)UserCommand.ControlElectricHeating] = new UserCommandKeyInput(0x23, KeyModifiers.Control);
+            //** Added for Second Throttle Control
+            Commands[(int)UserCommand.ControlSecondThrottleIncrease] = new UserCommandKeyInput(0x20, KeyModifiers.Shift);
+            Commands[(int)UserCommand.ControlSecondThrottleDecrease] = new UserCommandKeyInput(0x1E, KeyModifiers.Shift);
+            Commands[(int)UserCommand.ControlSecondThrottleZero] = new UserCommandKeyInput(0x1E, KeyModifiers.Alt); 
+
             Commands[(int)UserCommand.ControlHorn] = new UserCommandKeyInput(0x39);
             Commands[(int)UserCommand.ControlImmediateRefill] = new UserCommandKeyInput(0x14, KeyModifiers.Shift);
             Commands[(int)UserCommand.ControlInitializeBrakes] = new UserCommandKeyInput(0x35, KeyModifiers.Shift);
