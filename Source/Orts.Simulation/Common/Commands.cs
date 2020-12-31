@@ -426,6 +426,29 @@ namespace Orts.Common
     }
 
     [Serializable()]
+    public sealed class NotchedSecondThrottleCommand : BooleanCommand
+    {
+        public static MSTSLocomotive Receiver { get; set; }
+
+        public NotchedSecondThrottleCommand(CommandLog log, bool toState) : base(log, toState)
+        {
+            Redo();
+        }
+
+        public override void Redo()
+        {
+            Receiver.AdjustSecondNotchedThrottle(ToState);
+            // Report();
+        }
+
+        public override string ToString()
+        {
+            return base.ToString() + " - " + (ToState ? "step forward" : "step back");
+        }
+    }
+
+
+    [Serializable()]
     public sealed class ContinuousThrottleCommand : ContinuousCommand {
         public static MSTSLocomotive Receiver { get; set; }
 
@@ -439,7 +462,25 @@ namespace Orts.Common
             // Report();
         }
     }
-    
+
+    [Serializable()]
+    public sealed class ContinuousSecondThrottleCommand : ContinuousCommand
+    {
+        public static MSTSLocomotive Receiver { get; set; }
+
+        public ContinuousSecondThrottleCommand(CommandLog log, bool toState, float? target, double startTime)
+            : base(log, toState, target, startTime)
+        {
+            Redo();
+        }
+
+        public override void Redo()
+        {
+            Receiver.SecondThrottleChangeTo(ToState, Target);
+            // Report();
+        }
+    }
+
     // Brakes
     [Serializable()]
     public sealed class TrainBrakeCommand : ContinuousCommand {

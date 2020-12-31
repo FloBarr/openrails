@@ -1106,7 +1106,6 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                             //** Must insert coupler speed elevation, not only Idle speed until shaft speed reaches diesel speed
 
                             DemandedRPM = IdleRPM+(ThrottleRPMTab[demandedThrottlePercent] - IdleRPM)*((locomotive.SpeedMpS/ GearBox.Gears[GearBox.CurrentGearIndex].MaxSpeedMpS));
-                            Trace.TraceInformation("Values : " + locomotive.SpeedMpS+" / "+DemandedRPM);
                         }
                     }
 

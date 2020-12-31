@@ -134,6 +134,7 @@ namespace Orts.Common
         SteamSafetyValveOff,
         SteamSafetyValveOn,
         ThrottleChange,
+        SecondThrottleChange,
         TrainBrakeChange,
         TrainBrakePressureDecrease,
         TrainBrakePressureIncrease,

@@ -25,7 +25,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
         public float GearBoxUpGearProportion = 0.85f;
         public float GearBoxDownGearProportion = 0.35f;
 
-        public float GearBoxTimeForSpeedChange = 0.00f;
+        public float GearBoxTimeForSpeedChange = 0.01f;
         public bool GearBoxSpeedChanging = false;
         public float GearBoxElapsedTimeForSpeedChange = 0.0f;
 
@@ -554,7 +554,6 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                 {
                     DieselEngine.locomotive.SignalEvent(Event.GearUp);
                     currentGearIndex = nextGearIndex;
-                    Trace.TraceInformation("Signal send: Gearing Up to "+currentGearIndex);
                 }
             }
             if (((clutch <= 0.05) || (clutch >= 0.5f))|| (AdvancedGearBox == true))
@@ -563,7 +562,6 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                 {
                     DieselEngine.locomotive.SignalEvent(Event.GearDown);
                     currentGearIndex = nextGearIndex;
-                    Trace.TraceInformation("Signal send: Gearing Down to " + currentGearIndex);
                 }
             }
 
