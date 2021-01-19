@@ -143,6 +143,7 @@ namespace Orts.Simulation.RollingStocks
         private DataMatrix2D FieldChangeSpeedDownMatrix;
         private DataMatrix FieldChangeNotchMatrix;
 
+        private DataMatrix CouplingChangeNotchMatrix;
         public List<float> FieldChangeController = new List<float>();
 
         private bool FieldChangeByNotch = false;
@@ -153,6 +154,12 @@ namespace Orts.Simulation.RollingStocks
         /// Gearing reduction beetwen motors and wheels
         /// </summary> 
         public float GearingReduction = 0;
+
+        /// <summary>
+        /// Armature resistance in ohm
+        /// </summary> 
+        public bool DCMotorResistanceBench = false;
+                
         /// <summary>
         /// Armature resistance in ohm
         /// </summary> 
@@ -238,6 +245,30 @@ namespace Orts.Simulation.RollingStocks
             base(simulator, wagFile)
         {
             PowerSupply = new ScriptedElectricPowerSupply(this);
+
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+                fs = File.OpenWrite(path);
+                string ExportString;
+                if (IsMetric)
+                {
+                    ExportString = "SpeedKmh" + ";" + "Time" + ';' + "Throttle" + ";" + "Voltage" + ";" + "U Inductor" + ";" + "BackEMF" + ";" + "TotalR" + ";" + "Amperage" + ";" + "Flow" + ";" + "New Force" + ";" + "Current Force" + ";" + "Power/Motor" + ";" + "AvailPower/Motor" + ";" + "OverLoad" + "\r\n";
+                }
+                else
+                {
+                    ExportString = "Speed(mph)" + ";" + "Time" + ';' + "Throttle" + ";" + "Voltage" + ";" + "U Inductor" + ";" + "BackEMF" + ";" + "TotalR" + ";" + "Amperage" + ";" + "Flow" + ";" + "New Force(lbf)" + ";" + "Legacy Force(lbf)" + ";" + "Power/Motor" + ";" + "AvailPower/Motor" + ";" + "OverLoad" + "\r\n";
+                }
+                byte[] info = new UTF8Encoding(true).GetBytes(ExportString);
+                fs.Write(info, 0, info.Length);
+            }
+            catch
+            {
+                //                Trace.TraceInformation("Export File already used");
+            }
         }
 
         /// <summary>
@@ -257,6 +288,11 @@ namespace Orts.Simulation.RollingStocks
                     break;
 
                 //** For test, new UpdateMotiveForce. Would be better in MSTSLocomotive
+                case "engine(ortsdcmotorresistancebench": 
+                    DCMotorResistanceBench = stf.ReadBoolBlock(false);
+                    Trace.TraceInformation("Resistance Bench ? " + DCMotorResistanceBench);
+                    break;
+                case "engine(ortsdcmotorcouplingchange": CouplingChangeNotchMatrix = new DataMatrix(stf); break;
 
                 case "engine(ortsdcmotorinternalr": DCMotorInternalR = stf.ReadFloatBlock(STFReader.UNITS.None, 0.25f); break;
                 case "engine(ortsdcmotorinductorr": DCMotorInductorR = stf.ReadFloatBlock(STFReader.UNITS.None, 0.25f); break;
@@ -365,19 +401,27 @@ namespace Orts.Simulation.RollingStocks
             FieldChangeSpeedUpMatrix = locoCopy.FieldChangeSpeedUpMatrix;
             FieldChangeSpeedDownMatrix = locoCopy.FieldChangeSpeedDownMatrix;
             FieldChangeNotchMatrix = locoCopy.FieldChangeNotchMatrix;
+            CouplingChangeNotchMatrix = locoCopy.CouplingChangeNotchMatrix;
             FieldChangeSpeedUp = locoCopy.FieldChangeSpeedUp;
             FieldChangeSpeedDown = locoCopy.FieldChangeSpeedDown;
             FieldChangeNotch = locoCopy.FieldChangeNotch;
             FieldChangeValues = locoCopy.FieldChangeValues;
+
             FieldChangeByNotch = locoCopy.FieldChangeByNotch;
+            FieldChangeByControl = locoCopy.FieldChangeByControl;
+            FieldChangeController = locoCopy.FieldChangeController;
+
             GearingReduction = locoCopy.GearingReduction;
             DCMotorNumber = locoCopy.DCMotorNumber;
+            DCMotorResistanceBench = locoCopy.DCMotorResistanceBench;
             DCMotorInternalR = locoCopy.DCMotorInternalR;
             DCMotorInductorR = locoCopy.DCMotorInductorR;
             DCMotorInductance = locoCopy.DCMotorInductance;
             DCMotorBEMFFactor = locoCopy.DCMotorBEMFFactor;
             DCMotorAmpToFlowFactor = locoCopy.DCMotorAmpToFlowFactor;
             UseDCMotorForce = locoCopy.UseDCMotorForce;
+            SecondControllerActive = locoCopy.SecondControllerActive;
+            SecondThrottleController = locoCopy.SecondThrottleController;
         }
 
         /// <summary>
@@ -443,7 +487,7 @@ namespace Orts.Simulation.RollingStocks
             WheelSpeedMpS = SpeedMpS;
             DynamicBrakePercent = -1;
             ThrottleController.SetValue(Train.MUThrottlePercent / 100);
-            SecondThrottleController.SetValue(Train.MUThrottlePercent / 100);
+            SecondThrottleController.SetValue(Train.MUSecondThrottlePercent / 100);
 
             Pantographs.InitializeMoving();
             PowerSupply.InitializeMoving();
@@ -486,6 +530,124 @@ namespace Orts.Simulation.RollingStocks
             float NotchCount = this.ThrottleController.NotchCount();                        //** Total notch count defined in .eng
 
             string ExportString; //** Export to string to txt file
+            float ThrottlePercentValue = 0;
+            float SecondThrottlePercentValue = 0;
+
+            float AbsPower = 0;
+
+            float SerialMotorNumber = 1;
+            float MaxMotorVoltage = FullVoltage;
+            float MotorVoltage = FullVoltage;
+
+            float prevNotchValue = 0f;
+            float nextNotchValue = 1f;
+
+            float prevMaxVoltageValue=0;
+
+            if (this.IsLeadLocomotive())
+            {
+                ThrottlePercentValue = LocalThrottlePercent;
+                SecondThrottlePercentValue = LocalSecondThrottlePercent;
+            }
+            else
+            {
+                if (AcceptMUSignals == true)
+                {
+                    ThrottlePercentValue = Train.LeadLocomotive.LocalThrottlePercent;
+                    SecondThrottlePercentValue = Train.LeadLocomotive.LocalSecondThrottlePercent;
+//                    Trace.TraceInformation("Other loco : " + ThrottlePercentValue + " / " + SecondThrottlePercentValue);
+                }
+            }
+
+            //** If Resistance Bench equiped locomotive, we burn the difference of voltage between Full Voltage and Motor Voltage 
+            DCMotorThrottleIncreaseForbidden = false;
+
+            if (DCMotorResistanceBench == true)
+            {
+                SerialMotorNumber= CouplingChangeNotchMatrix.Get((ThrottlePercentValue / 100));
+
+                prevMaxVoltageValue = 0;
+                nextNotchValue = 0;
+
+                for (int i= (CouplingChangeNotchMatrix.GetSize()-1); i>=0;i--)
+                {
+                    if (Math.Round(ThrottlePercentValue / 100,3) > (Math.Round( CouplingChangeNotchMatrix.X[i],3)))
+                    {
+
+                        prevNotchValue = CouplingChangeNotchMatrix.X[i];
+                        if (i == (CouplingChangeNotchMatrix.GetSize() - 1))
+                            nextNotchValue = 1;
+                        else
+                            nextNotchValue = CouplingChangeNotchMatrix.X[i + 1];
+                        if((i>0))
+                            prevMaxVoltageValue=FullVoltage/ CouplingChangeNotchMatrix.Y[i-1];
+
+                        i = 0;
+//                        Trace.TraceInformation("Notches : " + prevNotchValue + " - " + nextNotchValue);
+                        break;
+                    }
+                    //** Changing Notch **//
+                    if (Math.Round(ThrottlePercentValue / 100, 3) == (Math.Round(CouplingChangeNotchMatrix.X[i], 3)))
+                    {
+                        if (i > 1)
+                        {
+                            prevNotchValue = CouplingChangeNotchMatrix.X[i - 1];
+                        }
+                        else
+                            prevNotchValue = 0;
+
+                        if (i == (CouplingChangeNotchMatrix.GetSize() - 2))
+                        {
+                            if(CouplingChangeNotchMatrix.GetSize()==2)
+                                nextNotchValue = 1;
+                            else
+                                nextNotchValue = CouplingChangeNotchMatrix.X[i];
+
+                        }
+                        else
+                            nextNotchValue = CouplingChangeNotchMatrix.X[i];
+
+                        SerialMotorNumber = CouplingChangeNotchMatrix.Get(((ThrottlePercentValue-1) / 100));
+
+                        if ((i >= 2))
+                        {
+                            prevMaxVoltageValue = FullVoltage / CouplingChangeNotchMatrix.Y[i - 1];
+                        }
+//                        Trace.TraceInformation("Exact Notch : prev Max Voltage = " + prevMaxVoltageValue + " / i=" + i);
+
+                        //                        Trace.TraceInformation("Exact Notch : " + prevNotchValue + " - " + nextNotchValue);
+
+                        break;
+                    }
+                    else
+                    {
+                        if (i > 0)
+                            prevNotchValue = CouplingChangeNotchMatrix.X[i - 1];
+                        else
+                            prevNotchValue = 0;
+
+                        if (i == (CouplingChangeNotchMatrix.GetSize() - 1))
+                            nextNotchValue = 1;
+                        else
+                            nextNotchValue = CouplingChangeNotchMatrix.X[i + 1];
+                    }
+                }
+                MaxMotorVoltage = FullVoltage / SerialMotorNumber;
+
+ //               MotorVoltage = prevMaxVoltageValue + (((((ThrottlePercentValue / 100) - prevNotchValue) / (nextNotchValue-prevNotchValue)) * ((FullVoltage - prevMaxVoltageValue) / SerialMotorNumber)));
+                MotorVoltage = prevMaxVoltageValue + (((((ThrottlePercentValue / 100) - prevNotchValue) / (nextNotchValue-prevNotchValue)) * ((MaxMotorVoltage - prevMaxVoltageValue))));
+
+//                Trace.TraceInformation("Max: " + MaxMotorVoltage + " Prev: "+ prevMaxVoltageValue + " / Motor : " + MotorVoltage + " I=" + IInductor + " / Nb: " + SerialMotorNumber+" Notches : "+prevNotchValue+" - "+ (ThrottlePercentValue /100)+ " - "+nextNotchValue);
+
+                if (Math.Round(MaxMotorVoltage - MotorVoltage) >= 0)
+                {
+                    AbsPower = MaxMotorVoltage * DCMotorNumber*IInductor;
+                }
+                if (AbsPower > MaxPowerW * 0.95)
+                    DCMotorThrottleIncreaseForbidden = true;
+            }
+            
+            
 
             //** Getting Voltage , different if field diversion by speed or notch       **//
             //** If field diverting is set for notches                                  **//
@@ -493,22 +655,22 @@ namespace Orts.Simulation.RollingStocks
             {
                 //** Demanded voltage is obtained before field diversion, at NotchCount-FieldChangeNumber
                 VirtualPercent = (float)(NotchCount / (NotchCount - FieldChangeNumber));
-                WantedNotch = VirtualPercent * (LocalThrottlePercent / 100);
+                WantedNotch = VirtualPercent * (ThrottlePercentValue / 100);
                 if (WantedNotch > 1) WantedNotch = 1;
 
                 DemandedVoltage = ((FullVoltage) * WantedNotch);
-                
             }
             else
             {
                 //** Demanded voltage is proportional to throttle, between low and high voltage    **//
-                DemandedVoltage = ((FullVoltage) * (LocalThrottlePercent / 100));
+ //               DemandedVoltage = ((MaxMotorVoltage) * (ThrottlePercentValue / 100));
+                DemandedVoltage = ((MotorVoltage) );
             }
-//            Trace.TraceInformation("Voltages = " + DemandedVoltage+" / "+Voltage+" / "+ FullVoltage+" / Throttle : "+ LocalThrottlePercent +" / Count : "+NotchCount);
+///           Trace.TraceInformation("Voltages = " + DemandedVoltage+" / "+Voltage+" / "+ FullVoltage+" / Throttle : "+ LocalThrottlePercent +" / Count : "+NotchCount);
 
-            if (LocalThrottlePercent > 0)
+            if (ThrottlePercentValue > 0)
             {
-                Voltage = DemandedVoltage;  //PowerSupply.LineVoltageV * ThrottlePercent;
+                Voltage = DemandedVoltage;  //PowerSupply.LineVoltageV * ThrottlePercentValue;
 
                 //** Near to demanded Voltage, setting it exactly, avoiding oscillations    **//
                 if ((Math.Abs(DemandedVoltage - Voltage) * elapsedClockSeconds) < (2 * elapsedClockSeconds))
@@ -523,13 +685,12 @@ namespace Orts.Simulation.RollingStocks
                     if (Train.AccelerationMpSpS.Value > 0)
                     {
                         //** And accelerating                       **//
-                        ActualFieldChangeFactor = FieldChangeSpeedUpMatrix.Get((LocalThrottlePercent / 100), AbsSpeedMpS);
-
+                        ActualFieldChangeFactor = FieldChangeSpeedUpMatrix.Get((ThrottlePercentValue / 100), AbsSpeedMpS);
                     }
                     else
                     {
                         //** Or decelerating                        **//
-                        ActualFieldChangeFactor = FieldChangeSpeedDownMatrix.Get((LocalThrottlePercent / 100), AbsSpeedMpS);
+                        ActualFieldChangeFactor = FieldChangeSpeedDownMatrix.Get((ThrottlePercentValue / 100), AbsSpeedMpS);
                     }
                 }
                 else  //** Linked to Notch                            **//
@@ -537,16 +698,21 @@ namespace Orts.Simulation.RollingStocks
                     if(FieldChangeByNotch==true)
                     {
                         //** If notch<=FieldChangeNotch, we use the value       **//
-                        ActualFieldChangeFactor = FieldChangeNotchMatrix.Get((LocalThrottlePercent / 100));
+                        ActualFieldChangeFactor = FieldChangeNotchMatrix.Get((ThrottlePercentValue / 100));
                         ShuntedR = DCMotorInductorR * ActualFieldChangeFactor;
                     }
                     if(FieldChangeByControl==true)
                     {
-                        int CurrentFieldNotch = SecondThrottleController.CurrentNotch;
+                        if(SecondControllerActive==true)
+                        {
+                            int CurrentFieldNotch = SecondThrottleController.CurrentNotch;
 
-                        ActualFieldChangeFactor = FieldChangeController[CurrentFieldNotch];
-
-                        Trace.TraceInformation(CurrentFieldNotch + " -> " + ActualFieldChangeFactor);
+                            ActualFieldChangeFactor = FieldChangeController[CurrentFieldNotch];
+                        }
+                        else
+                        {
+                            ActualFieldChangeFactor = 1;
+                        }
 
                         ShuntedR = DCMotorInductorR * ActualFieldChangeFactor;
                     }
@@ -555,16 +721,18 @@ namespace Orts.Simulation.RollingStocks
                 //** We now have Field R and Armature R                     **//
                 TotalR = R + ShuntedR;
 
+
+
                 //** Displaying infos, for tests                            **//
                 if (IsLeadLocomotive() == true)
                 {
                     if (IsMetric)
                     {
-                        Simulator.Confirmer.Information(DCMotorAmpToFlowFactor + ", Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , UM=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information(prevMaxVoltageValue + " / "+(int)(AbsPower/1000) + "kW, Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , UM=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
                     }
                     else
                     {
-                        Simulator.Confirmer.Information(DCMotorAmpToFlowFactor + ", Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , UM=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information(prevMaxVoltageValue + " / " + (int)(AbsPower / 1000) + "kW, Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , UM=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
                     }
                 }
 
@@ -595,8 +763,8 @@ namespace Orts.Simulation.RollingStocks
                     IInductor = (PrevUInductor - (TotalR) * PrevIInductor) * (1 / (Inductance * TimeResponse)) + PrevIInductor;
                     //** And verified, if exceeding MaxCurrent, limited to this value                                   **//
                     //** In a perfect world, if exceeding value, should open line contactor or damage motors            **//
-                    if (IInductor > MaxCurrentA / (DCMotorNumber))
-                        IInductor = (MaxCurrentA / DCMotorNumber);
+                    if (IInductor > (MaxCurrentA * SerialMotorNumber) / (DCMotorNumber))
+                        IInductor = ((MaxCurrentA * SerialMotorNumber) / DCMotorNumber);
 
             }
             else
@@ -604,7 +772,8 @@ namespace Orts.Simulation.RollingStocks
                 UInductor = Voltage;
                 IInductor = (PrevUInductor - (TotalR) * PrevIInductor) * (1 / (Inductance * TimeResponse)) + PrevIInductor;
 
-                if (IInductor > MaxCurrentA / (DCMotorNumber)) IInductor = (MaxCurrentA / DCMotorNumber);
+                if (IInductor > (MaxCurrentA * SerialMotorNumber) / (DCMotorNumber))
+                    IInductor = ((MaxCurrentA * SerialMotorNumber) / DCMotorNumber);
 
                 //** Displaying information at speed = 0
                 if (IsLeadLocomotive() == true)
@@ -645,7 +814,7 @@ namespace Orts.Simulation.RollingStocks
 
             //** Using amperage to calculate flow generated                                                             **//
             if (DCMotorInductorR > 0)
-                InductFlow = DCMotorAmpToFlowFactor * IInductor * ActualFieldChangeFactor;
+                InductFlow = DCMotorAmpToFlowFactor * IInductor ;  
 
             //** and induced Force
             InducedForce = InductFlow * IInductor;
@@ -657,7 +826,7 @@ namespace Orts.Simulation.RollingStocks
             RotSpeed = k4 * AbsWheelSpeedMpS;
 
             //** Back EMF, proportional to speed
-            BackEMF = InductFlow * RotSpeed * DCMotorBEMFFactor;
+            BackEMF = InductFlow * RotSpeed * DCMotorBEMFFactor * ActualFieldChangeFactor; 
 
             //** Verifying and correcting negative values                                                               **//
             if (BackEMF < 0)
@@ -684,14 +853,12 @@ namespace Orts.Simulation.RollingStocks
             DisplayedAmperage = IInductor;
 
             //** Report writing                                                                                         **//
-            if (LocalThrottlePercent > 0)
+            if (ThrottlePercentValue > 0)
             {
                 TimeFromStart += elapsedClockSeconds;
 
-
                 if (this.IsLeadLocomotive())
                 {
-
                     //                    if ((TimeFromStart - PrevTimeFromStart) > 0.5)  //** Writing report every 0.5s
                     //                    {
                     //** Creating String                    **//
@@ -701,7 +868,7 @@ namespace Orts.Simulation.RollingStocks
                         if (PrevSpeed != (int)Math.Round(MpS.ToKpH(AbsSpeedMpS)))
                         {
                             PrevSpeed = (int)Math.Round(MpS.ToKpH(AbsSpeedMpS));
-                            ExportString = MpS.ToKpH(AbsSpeedMpS) + ";" + TimeFromStart + ";" + LocalThrottlePercent + ";" + Voltage + ";" + UInductor + ";" + BackEMF + ";" + TotalR + ";" + IInductor + ";" + InductFlow + ";" + (NewMotiveForceN / 1000) + ";" + (LegacyMotiveForceN / 1000) + ";" + (Voltage * IInductor / 1000) + ";" + "???" + ";" + OverLoad + "\r\n";
+                            ExportString = MpS.ToKpH(AbsSpeedMpS) + ";" + TimeFromStart + ";" + ThrottlePercentValue + ";" + Voltage + ";" + UInductor + ";" + BackEMF + ";" + TotalR + ";" + IInductor + ";" + InductFlow + ";" + (NewMotiveForceN / 1000) + ";" + (LegacyMotiveForceN / 1000) + ";" + (Voltage * IInductor / 1000) + ";" + "???" + ";" + OverLoad + "\r\n";
                             //**Export to report file
                             byte[] info = new UTF8Encoding(true).GetBytes(ExportString);
                             try
@@ -710,11 +877,10 @@ namespace Orts.Simulation.RollingStocks
                             }
                             catch
                             {
-
+                                Trace.TraceInformation("Catch : "+ ExportString);
                             }
                             PrevTimeFromStart = TimeFromStart;
                         }
-
                     }
                     else
                     {
@@ -722,7 +888,7 @@ namespace Orts.Simulation.RollingStocks
                         if (PrevSpeed != (int)Math.Round(MpS.ToKpH(AbsSpeedMpS)))
                         {
                             PrevSpeed = (int)Math.Round(MpS.ToKpH(AbsSpeedMpS));
-                            ExportString = MpS.ToMpH(AbsSpeedMpS) + ";" + TimeFromStart + ";" + LocalThrottlePercent + ";" + Voltage + ";" + UInductor + ";" + BackEMF + ";" + TotalR + ";" + IInductor + ";" + InductFlow + ";" + N.ToLbf(NewMotiveForceN) + ";" + N.ToLbf(LegacyMotiveForceN) + ";" + (Voltage * IInductor / 1000) + ";" + "???" + ";" + OverLoad + "\r\n";
+                            ExportString = MpS.ToMpH(AbsSpeedMpS) + ";" + TimeFromStart + ";" + ThrottlePercentValue + ";" + Voltage + ";" + UInductor + ";" + BackEMF + ";" + TotalR + ";" + IInductor + ";" + InductFlow + ";" + N.ToLbf(NewMotiveForceN) + ";" + N.ToLbf(LegacyMotiveForceN) + ";" + (Voltage * IInductor / 1000) + ";" + "???" + ";" + OverLoad + "\r\n";
                             //**Export to report file
                             byte[] info = new UTF8Encoding(true).GetBytes(ExportString);
                             try
@@ -736,12 +902,8 @@ namespace Orts.Simulation.RollingStocks
                             PrevTimeFromStart = TimeFromStart;
                         }
                     }
-
-                    //                    }
                 }
-
             }
-
         }
 
         /// <summary>

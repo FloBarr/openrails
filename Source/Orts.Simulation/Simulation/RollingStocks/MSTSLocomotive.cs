@@ -416,7 +416,13 @@ namespace Orts.Simulation.RollingStocks
         public MSTSNotchController SteamHeatController = new MSTSNotchController(0, 1, 0.1f);
 
         public MSTSNotchController ThrottleController;
+
+        //** Second Throttle Controller                     **//
         public MSTSNotchController SecondThrottleController;
+        public bool SecondControllerActive = false;
+        //** Next Notch or Throttle Increase forbidden? 
+        public bool DCMotorThrottleIncreaseForbidden = false;
+
 
         public ScriptedBrakeController TrainBrakeController;
         public ScriptedBrakeController EngineBrakeController;
@@ -815,7 +821,7 @@ namespace Orts.Simulation.RollingStocks
                     break;
 
                 case "engine(enginecontrollers(throttle": ThrottleController = new MSTSNotchController(stf); break;
-                case "engine(enginecontrollers(secondthrottle": SecondThrottleController = new MSTSNotchController(stf); break;
+                case "engine(enginecontrollers(secondthrottle": SecondThrottleController = new MSTSNotchController(stf); SecondControllerActive = true;  break;
                 case "engine(enginecontrollers(regulator": ThrottleController = new MSTSNotchController(stf); break;
                 case "engine(enginecontrollers(brake_dynamic": DynamicBrakeController.Parse(stf); break;
 
@@ -1065,6 +1071,9 @@ namespace Orts.Simulation.RollingStocks
             IsDriveable = copy.IsDriveable;
             //ThrottleController = MSTSEngineController.Copy(locoCopy.ThrottleController);
             ThrottleController = (MSTSNotchController)locoCopy.ThrottleController.Clone();
+            SecondThrottleController = (MSTSNotchController)locoCopy.SecondThrottleController.Clone();
+            DCMotorThrottleIncreaseForbidden = locoCopy.DCMotorThrottleIncreaseForbidden;
+
             SteamHeatController = (MSTSNotchController)locoCopy.SteamHeatController.Clone();
             TrainBrakeController = locoCopy.TrainBrakeController.Clone(this);
             EngineBrakeController = locoCopy.EngineBrakeController != null ? locoCopy.EngineBrakeController.Clone(this) : null;
@@ -1639,14 +1648,28 @@ namespace Orts.Simulation.RollingStocks
             {
                 UpdateCarSteamHeat(elapsedClockSeconds);
             }
- 
+
             // TODO  this is a wild simplification for electric and diesel electric
-                        float t = ThrottlePercent / 100f;
+            float t = ThrottlePercent / 100f;
+
+            //** Separated throttle depending on Diesel Serie and throttle oe second throttle lever
+            if (this is MSTSDieselLocomotive)
+            {
+                if ((SecondControllerActive == true))
+                {
+                    foreach (DieselEngine de in (this as MSTSDieselLocomotive).DieselEngines)
+                    {
+                        if (de.DieselSerie == 2)
+                            t = SecondThrottlePercent / 100f;
+                    }
+                }
+
+            }
 
             if (!AdvancedAdhesionModel)  // Advanced adhesion model turned off.
                AbsWheelSpeedMpS = AbsSpeedMpS;
 
-            if(this is MSTSElectricLocomotive)
+            if (this is MSTSElectricLocomotive)
             {
                 if ((this as MSTSElectricLocomotive).UseDCMotorForce == true)
                 {
@@ -1656,10 +1679,17 @@ namespace Orts.Simulation.RollingStocks
                     if (w < 0)
                         w = 0;
                     AverageForceN = w * AverageForceN + (1 - w) * MotiveForceN;
+//                    Trace.TraceInformation(IsLeadLocomotive()+" -> Force: "+MotiveForceN);
                 }
-                else UpdateMotiveForce(elapsedClockSeconds, t, AbsSpeedMpS, AbsWheelSpeedMpS);
+                else
+                {
+                    UpdateMotiveForce(elapsedClockSeconds, t, AbsSpeedMpS, AbsWheelSpeedMpS);
+                }
             }
-            else UpdateTractiveForce(elapsedClockSeconds, t, AbsSpeedMpS, AbsWheelSpeedMpS);
+            else
+            {
+                UpdateTractiveForce(elapsedClockSeconds, t, AbsSpeedMpS, AbsWheelSpeedMpS);
+            }
 
             ApplyDirectionToTractiveForce();
 
@@ -2005,13 +2035,29 @@ namespace Orts.Simulation.RollingStocks
                 ThrottleController.Update(elapsedClockSeconds);
                 if (ThrottleController.CurrentNotch < throttleCurrentNotch && ThrottleController.ToZero)
                     SignalEvent(Event.ThrottleChange);
+                
                 ThrottlePercent = (ThrottleIntervention < 0 ? ThrottleController.CurrentValue : ThrottleIntervention) * 100.0f;
+                
+                if(SecondControllerActive==true)
+                {
+                    var SecondThrottleCurrentNotch = SecondThrottleController.CurrentNotch;
+                    SecondThrottleController.Update(elapsedClockSeconds);
+                    if (SecondThrottleController.CurrentNotch < SecondThrottleCurrentNotch && SecondThrottleController.ToZero)
+                        SignalEvent(Event.ThrottleChange);
+                        SecondThrottlePercent = (ThrottleIntervention < 0 ? SecondThrottleController.CurrentValue : ThrottleIntervention) * 100.0f;
+                    LocalSecondThrottlePercent = (ThrottleIntervention < 0 ? SecondThrottleController.CurrentValue : ThrottleIntervention) * 100.0f;
+                }
+
                 ConfirmWheelslip(elapsedClockSeconds);
                 LocalThrottlePercent = (ThrottleIntervention < 0 ? ThrottleController.CurrentValue : ThrottleIntervention) * 100.0f;
             }
             else
             {
                 ThrottleController.Update(elapsedClockSeconds);
+                if (SecondControllerActive == true)
+                {
+                   SecondThrottleController.Update(elapsedClockSeconds);
+                }
             }
 
 #if INDIVIDUAL_CONTROL
@@ -2982,8 +3028,8 @@ namespace Orts.Simulation.RollingStocks
         }
         public void StartSecondThrottleIncrease(float? target)
         {
-            Trace.TraceInformation("Second Throttle : Min-" + SecondThrottleController.MinimumValue+" / Actuelle-"+SecondThrottleController.CurrentValue + " / cible-" + target+ " / Max-"+ SecondThrottleController.MaximumValue+" / Noeuds "+SecondThrottleController.NotchCount());
-
+            //            Trace.TraceInformation("Second Throttle : Min-" + SecondThrottleController.MinimumValue+" / Actuelle-"+SecondThrottleController.CurrentValue + " / cible-" + target+ " / Max-"+ SecondThrottleController.MaximumValue+" / Noeuds "+SecondThrottleController.NotchCount());
+            if (SecondControllerActive == false) return;
             if (SecondThrottleController.CurrentValue >= SecondThrottleController.MaximumValue)
                 return;
 
@@ -2998,7 +3044,9 @@ namespace Orts.Simulation.RollingStocks
 
         public void StartThrottleIncrease()
         {
-            if (DynamicBrakeController != null && DynamicBrakeController.CurrentValue >= 0 && (DynamicBrakePercent >= 0 || !(DynamicBrakePercent == -1 && !DynamicBrake || DynamicBrakePercent >= 0 && DynamicBrake)))
+            if (DCMotorThrottleIncreaseForbidden == true) return;
+
+            if (DynamicBrakePercent >= 0 || !(DynamicBrakePercent == -1 && !DynamicBrake || DynamicBrakePercent >= 0 && DynamicBrake))
             {
                 if (!(CombinedControlType == CombinedControl.ThrottleDynamic
                     || CombinedControlType == CombinedControl.ThrottleAir && TrainBrakeController.CurrentValue > 0))
@@ -3018,7 +3066,8 @@ namespace Orts.Simulation.RollingStocks
 
         public void StartSecondThrottleIncrease()
         {
-
+            if (DCMotorThrottleIncreaseForbidden == true) return;
+            if (SecondControllerActive == false) return;
             if (DynamicBrakePercent >= 0 || !(DynamicBrakePercent == -1 && !DynamicBrake || DynamicBrakePercent >= 0 && DynamicBrake))
             {
                 if (!(CombinedSecondControlType == CombinedControl.ThrottleDynamic
@@ -3053,6 +3102,8 @@ namespace Orts.Simulation.RollingStocks
 
         public void StopSecondThrottleIncrease()
         {
+            if (SecondControllerActive == false) return;
+            Trace.TraceInformation("Stop 2nd Throttle Increase");
             AlerterReset(TCSEvent.ThrottleChanged);
             SecondThrottleController.StopIncrease();
 
@@ -3061,7 +3112,7 @@ namespace Orts.Simulation.RollingStocks
             else if (CombinedSecondControlType == CombinedControl.ThrottleAir)
                 StopTrainBrakeDecrease();
             else if (SecondThrottleController.SmoothMax() != null)
-                new ContinuousThrottleCommand(Simulator.Log, true, SecondThrottleController.CurrentValue, CommandStartTime);
+                new ContinuousSecondThrottleCommand(Simulator.Log, true, SecondThrottleController.CurrentValue, CommandStartTime);
         }
 
         public void StartThrottleDecrease(float? target)
@@ -3079,6 +3130,7 @@ namespace Orts.Simulation.RollingStocks
 
         public void StartSecondThrottleDecrease(float? target)
         {
+            if (SecondControllerActive == false) return;
             if (SecondThrottleController.CurrentValue <= SecondThrottleController.MinimumValue)
                 return;
 
@@ -3102,12 +3154,13 @@ namespace Orts.Simulation.RollingStocks
         }
         public void StartSecondThrottleDecrease()
         {
+            if (SecondControllerActive == false) return;
             if (CombinedSecondControlType == CombinedControl.ThrottleDynamic && SecondThrottleController.CurrentValue <= 0)
                 StartDynamicBrakeIncrease(null);
             else if (CombinedSecondControlType == CombinedControl.ThrottleAir && SecondThrottleController.CurrentValue <= 0)
                 StartTrainBrakeIncrease(null);
             else
-                StartSecondThrottleDecrease(ThrottleController.SmoothMin());
+                StartSecondThrottleDecrease(SecondThrottleController.SmoothMin());
         }
 
         public void StopThrottleDecrease()
@@ -3124,6 +3177,7 @@ namespace Orts.Simulation.RollingStocks
         }
         public void StopSecondThrottleDecrease()
         {
+            if (SecondControllerActive == false) return;
             AlerterReset(TCSEvent.ThrottleChanged);
             SecondThrottleController.StopDecrease();
 
@@ -3131,8 +3185,8 @@ namespace Orts.Simulation.RollingStocks
                 StopDynamicBrakeIncrease();
             else if (CombinedSecondControlType == CombinedControl.ThrottleAir)
                 StopTrainBrakeIncrease();
-            if (ThrottleController.SmoothMin() != null)
-                new ContinuousThrottleCommand(Simulator.Log, false, SecondThrottleController.CurrentValue, CommandStartTime);
+            if (SecondThrottleController.SmoothMin() != null)
+                new ContinuousSecondThrottleCommand(Simulator.Log, false, SecondThrottleController.CurrentValue, CommandStartTime);
         }
         //Steam Heat Controller
 
@@ -4512,7 +4566,14 @@ namespace Orts.Simulation.RollingStocks
 
                                 }
                             }
+                            else if (this is MSTSElectricLocomotive)
+                            {
+                                if ((this as MSTSElectricLocomotive).TractionMotorType == TractionMotorTypes.DC)
+                                {
+                                    data = (this as MSTSElectricLocomotive).DisplayedAmperage;
 
+                                }
+                            }
                             if (direction == 1)
                                 data = -data;
                             if (cvc.ControlType == CABViewControlTypes.AMMETER_ABS) data = Math.Abs(data);
@@ -4784,6 +4845,29 @@ namespace Orts.Simulation.RollingStocks
                             data = mstsDieselLocomotive.DieselEngines[0].RealRPM;
                         break;
                     }
+
+                //** Recup du régime moteur de l'UM
+                case CABViewControlTypes.RPM_HELPER:
+                    {
+                        foreach (var car in Train.Cars)
+                        {
+                            var dieselLoco = car as MSTSDieselLocomotive;
+                            if (dieselLoco != null && dieselLoco.AcceptMUSignals)
+                            {
+                                if (car != Simulator.PlayerLocomotive)
+                                {
+
+                                    data = dieselLoco.DieselEngines[0].RealRPM;
+                                    break;
+                                }
+                            }
+                        }
+                        //var mstsDieselLocomotive = this as MSTSDieselLocomotive;
+                        //if (mstsDieselLocomotive.DieselEngines[0] != null)
+                        //data = mstsDieselLocomotive.DieselEngines[0].RealRPM;
+                        break;
+                    }
+
                 case CABViewControlTypes.ORTS_DIESEL_TEMPERATURE:
                     {
                         var mstsDieselLocomotive = this as MSTSDieselLocomotive;
@@ -4805,6 +4889,12 @@ namespace Orts.Simulation.RollingStocks
                         data = Train.TrainType == Train.TRAINTYPE.AI_PLAYERHOSTING? ThrottlePercent / 100f : LocalThrottlePercent / 100f;
                         break;
                     }
+                case CABViewControlTypes.SECOND_THROTTLE:
+                    {
+                        data = Train.TrainType == Train.TRAINTYPE.AI_PLAYERHOSTING ? SecondThrottlePercent / 100f : LocalSecondThrottlePercent / 100f;
+                        break;
+                    }
+
                 case CABViewControlTypes.ENGINE_BRAKE:
                     {
                         data = (EngineBrakeController == null) ? 0.0f : EngineBrakeController.CurrentValue;
@@ -5192,14 +5282,34 @@ namespace Orts.Simulation.RollingStocks
                 case CABViewControlTypes.ORTS_TCS48:
                     data = TrainControlSystem.CabDisplayControls[(int)cvc.ControlType - (int)CABViewControlTypes.ORTS_TCS1];
                     break;
-                case CABViewControlTypes.ORTS_GENERATOR_VOLTAGE:
-                    if ((this as MSTSDieselLocomotive).HasDCMotor == true)
-                    {
-                        data = (this as MSTSDieselLocomotive).Voltage;
 
+                case CABViewControlTypes.ORTS_GENERATOR_VOLTAGE:
+
+                    if (this is MSTSDieselLocomotive)
+                    {
+                        if ((this as MSTSDieselLocomotive).HasDCMotor == true)
+                        {
+                            data = (this as MSTSDieselLocomotive).Voltage;
+                        }
                     }
+                    else if (this is MSTSElectricLocomotive)
+                    {
+                        if ((this as MSTSElectricLocomotive).HasDCMotor == true)
+                        {
+                            data = (this as MSTSElectricLocomotive).Voltage;
+                        }
+                    }
+                    else data = 0;
+
 
                     break;
+
+                case CABViewControlTypes.ORTS_THROTTLE_UP_FORBIDDEN:
+                    {
+                        data = DCMotorThrottleIncreaseForbidden ? 1 : 0;
+//                        Trace.TraceInformation("Throttle up forbidden ? " +data);
+                        break;
+                    }
 
                 default:
                     {

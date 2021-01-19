@@ -63,7 +63,10 @@ namespace Orts.Simulation.RollingStocks
     {
         public float IdleRPM;
         public float HeatingRPM;
-        public bool HeatingTrigger = false;
+        public float HeatingVoltage;    //** Not the best place to put, would be better linked to a generator or alternator class
+        public float HeatingAskedPower;
+        public float HeatingAbsorbedPower;
+        public bool HeatingStatus = false;
         public float MaxRPM;
         public float MaxRPMChangeRate;
         public float PercentChangePerSec = .2f;
@@ -219,7 +222,10 @@ namespace Orts.Simulation.RollingStocks
         private DataMatrix2D FieldChangeSpeedDownMatrix;
         private DataMatrix FieldChangeNotchMatrix;
 
-        private bool FieldChangeByNotch = false;
+        private DataMatrix CouplingChangeNotchMatrix;
+        public List<float> FieldChangeController = new List<float>();
+
+        public bool FieldChangeByNotch = false;
         /// <summary>
         /// Gearing reduction beetwen motors and wheels
         /// </summary> 
@@ -273,7 +279,11 @@ namespace Orts.Simulation.RollingStocks
         /// LegacyMotiveForce
         /// </summary> 
         private int PrevSpeed = 0;
-
+        
+        /// <summary>
+        /// Previous Noutch
+        /// </summary> 
+        private float PrevNotch = 0;
 
         /// <summary>
         /// Displayed Force
@@ -302,7 +312,16 @@ namespace Orts.Simulation.RollingStocks
         /// </summary> 
         private FileStream fs;
 
+        /// <summary>
+        /// Heating Calls
+        /// </summary> 
         public int HeatingRPMCalls=0;
+
+        /// <summary>
+        /// Heating Force Throttle to zero
+        /// </summary> 
+        public bool HeatingForceThrottleToZero = false;
+
 
         public MSTSDieselLocomotive(Simulator simulator, string wagFile)
             : base(simulator, wagFile)
@@ -363,6 +382,7 @@ namespace Orts.Simulation.RollingStocks
                 case "engine(ortsdieselcooling": DieselEngineCooling = (DieselEngine.Cooling)stf.ReadInt((int)DieselEngine.Cooling.Proportional); break;
 
                 //** For test, new UpdateMotiveForce. Would be better in MSTSLocomotive
+                case "engine(ortsdcmotorcouplingchange": CouplingChangeNotchMatrix = new DataMatrix(stf); break;
 
                 case "engine(ortsdcmotorinternalr": DCMotorInternalR = stf.ReadFloatBlock(STFReader.UNITS.None, 0.25f); break;
                 case "engine(ortsdcmotorinductorr": DCMotorInductorR = stf.ReadFloatBlock(STFReader.UNITS.None, 0.25f); break;
@@ -682,6 +702,10 @@ namespace Orts.Simulation.RollingStocks
             DCMotorBEMFFactor = locoCopy.DCMotorBEMFFactor;
             DCMotorAmpToFlowFactor = locoCopy.DCMotorAmpToFlowFactor;
             UseDCMotorForce= locoCopy.UseDCMotorForce;
+            CouplingChangeNotchMatrix = locoCopy.CouplingChangeNotchMatrix;
+
+            SecondControllerActive = locoCopy.SecondControllerActive;
+
         }
 
         public override void Initialize()
@@ -770,6 +794,7 @@ namespace Orts.Simulation.RollingStocks
                 GearBoxController.SetValue((float)GearBoxController.CurrentNotch);
             }
             ThrottleController.SetValue(Train.MUThrottlePercent / 100);
+            SecondThrottleController.SetValue(Train.MUSecondThrottlePercent / 100);
         }
 
 
@@ -782,7 +807,6 @@ namespace Orts.Simulation.RollingStocks
             {
                 UpdateDCMotorCurrent(elapsedClockSeconds);
             }
-
             base.Update(elapsedClockSeconds);
 
             // The following is not in the UpdateControllers function due to the fact that fuel level has to be calculated after the motive force calculation.
@@ -850,6 +874,7 @@ namespace Orts.Simulation.RollingStocks
         /// </summary>
         public void UpdateDCMotorCurrent(float elapsedClockSeconds)
         {
+//            Trace.TraceInformation("UpdateDCMotor");
             float FullVoltage = GeneratorVoltage;       //** Max voltage given by alternator/generator, arbitrarily set  //750 for BB63500, 900 for 67300 (electric engine config)
             float R = DCMotorInternalR;                 //** Induced R, fixed, arbitrarily set
             float ShuntedR = DCMotorInductorR;          //** Inductor R, could be modified with field reduction
@@ -869,33 +894,81 @@ namespace Orts.Simulation.RollingStocks
             float WantedNotch = 0;                      //** Used to determine voltage, while Field Change by Notch is active (max voltage supplied before fields changes notches
             float VirtualPercent = 0f;                  //** Virtual notch used to get voltage if Change by Notch is active
             float NotchCount = this.ThrottleController.NotchCount();                        //** Total notch count defined in .eng
+            float SerialMotorNumber = 1;
 
             string ExportString; //** Export to string to txt file
+
+            HeatingVoltage = this.DieselEngines[0].HeatingVoltage;
+            float generatorUsedLowVoltage = GeneratorLowVoltage;
+
+            bool HTMode = false;
+
+            try
+            {
+                SerialMotorNumber = CouplingChangeNotchMatrix.Get((ThrottlePercent / 100));
+            }
+            catch
+            {
+                SerialMotorNumber = 1;
+            }
 
             //** Getting Voltage , different if field diversion by speed or notch       **//
             //** If field diverting is set for notches                                  **//
             if (FieldChangeByNotch == true)
             {
+                float VoltPerNotch = GeneratorLowVoltage + ((FullVoltage - GeneratorLowVoltage))/(NotchCount - FieldChangeNumber);
+                int HeatingNotch = (int)(this.DieselEngines[0].HeatingVoltage / VoltPerNotch);
+
                 //** Demanded voltage is obtained before field diversion, at NotchCount-FieldChangeNumber
+
                 VirtualPercent = (float)(NotchCount / (NotchCount - FieldChangeNumber));
                 WantedNotch = VirtualPercent * (ThrottlePercent / 100);
                 if (WantedNotch > 1) WantedNotch = 1;
-
                 DemandedVoltage = GeneratorLowVoltage + ((FullVoltage - GeneratorLowVoltage) * WantedNotch);
+
+
+                if ((this.DieselEngines[0].IsHeatingRPMCommand() == true) && (IsLeadLocomotive() == true)&&(WantedNotch!=0)&&(PrevNotch==0))
+                {
+                        Voltage = 0;
+                }
+
+                Simulator.Confirmer.Information((HeatingNotch/NotchCount) + " / "+ (PrevNotch * ((NotchCount - FieldChangeNumber)) / (NotchCount)) + " - "+DemandedVoltage+" / "+ this.DieselEngines[0].HeatingVoltage);
+
+                if ((DemandedVoltage < this.DieselEngines[0].HeatingVoltage)&&((PrevNotch*((NotchCount- FieldChangeNumber)) / (NotchCount) > (HeatingNotch/NotchCount))))
+                {
+//                    HeatingForceThrottleToZero=true;
+                    ThrottleToZero();
+                }
+                    
+                PrevNotch = WantedNotch;
 
             }
             else
             {
-                //** Demanded voltage is proportional to throttle, between low and high voltage    **//
-                DemandedVoltage = GeneratorLowVoltage + ((FullVoltage - GeneratorLowVoltage) * (ThrottlePercent / 100));
+                //** Demanded voltage between heating voltage and max voltage   **//
+                if ((this.DieselEngines[0].IsHeatingRPMCommand() == true) && (IsLeadLocomotive() == true))
+                {
+                    generatorUsedLowVoltage = HeatingVoltage;
+                    DemandedVoltage = HeatingVoltage + ((FullVoltage - HeatingVoltage) * (ThrottlePercent / 100));
+                    if (Voltage < DemandedVoltage)
+                    {
+                        Voltage += 120 * elapsedClockSeconds;
+                    }
+                }
+                else
+                {
+                    //** Demanded voltage is proportional to throttle, between low and high voltage    **//
+                    DemandedVoltage = GeneratorLowVoltage + ((FullVoltage - GeneratorLowVoltage) * (ThrottlePercent / 100));
+                }
             }
 
             if (ThrottlePercent > 0)
             {
                 //                bool wCurrentPriority = true;
 
+
                 //                if((wCurrentPriority==false)|| ((DemandedVoltage < (GeneratorLowVoltage + (AbsSpeedMpS / (MaxSpeedMpS / 5)) * (GeneratorLowVoltage + GeneratorVoltage)) * (ThrottlePercent / 100))&&(wCurrentPriority == true)))
-                if ((DemandedVoltage < (GeneratorLowVoltage + (AbsSpeedMpS / (MaxSpeedMpS / 5)) * (GeneratorLowVoltage + GeneratorVoltage)) * (ThrottlePercent / 100))||(FieldChangeByNotch==true))
+                if ((DemandedVoltage < (generatorUsedLowVoltage + (AbsSpeedMpS / (MaxSpeedMpS / 5)) * (generatorUsedLowVoltage + GeneratorVoltage)) * (ThrottlePercent / 100))||(FieldChangeByNotch==true))
                 {
                     //** Increasing Generator Voltage smoothly  **//
                     if (Voltage < DemandedVoltage)
@@ -926,16 +999,18 @@ namespace Orts.Simulation.RollingStocks
                 }
                 else
                 {
-                    Voltage = (GeneratorLowVoltage + (AbsSpeedMpS / (MaxSpeedMpS/4)) * (GeneratorVoltage - GeneratorLowVoltage)) * (ThrottlePercent / 100);
+                    Voltage = (generatorUsedLowVoltage + (AbsSpeedMpS / (MaxSpeedMpS/5)) * (GeneratorVoltage + generatorUsedLowVoltage)) * (ThrottlePercent / 100);
                     if ((IInductor * Voltage) > ((this.DieselEngines.MaxOutputPowerW) / DCMotorNumber))
                     {
                         Voltage = ((this.DieselEngines.MaxOutputPowerW / DCMotorNumber) / IInductor);
                     }
+                    HTMode = true;
                 }
 
                 //** Near to demanded Voltage, setting it exactly, avoiding oscillations    **//
                 if ((Math.Abs(DemandedVoltage - Voltage) * elapsedClockSeconds) < (2 * elapsedClockSeconds))
                     Voltage = DemandedVoltage;
+
 
                 ShuntedR = DCMotorInductorR;
 
@@ -971,11 +1046,11 @@ namespace Orts.Simulation.RollingStocks
                 {
                     if (IsMetric)
                     {
-//                        Simulator.Confirmer.Information(DCMotorAmpToFlowFactor + ", Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information("Heating : "+HeatingStatus+", Heating Power :"+HeatingAbsorbedPower+", Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V,  Demanded = "+DemandedVoltage+"+V ,BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
                     }
                     else
                     {
-//                        Simulator.Confirmer.Information(DCMotorAmpToFlowFactor + ", Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information("Heating : " + HeatingStatus + ", Heating Power :" + HeatingAbsorbedPower + ", Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V,  Demanded = " + DemandedVoltage+"+V ,BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
                     }
                 }
 
@@ -991,11 +1066,11 @@ namespace Orts.Simulation.RollingStocks
                 //** Throttle =0, line contactors opened, no voltage                                                **//
                 if((this.DieselEngines[0].IsHeatingRPMCommand() == true)&&(IsLeadLocomotive()==true))
                 {
-                    Simulator.Confirmer.Information("Heating!");
+//                    Simulator.Confirmer.Information("Heating!");
                     DemandedVoltage = GeneratorVoltage;
                     if(Voltage<DemandedVoltage)
                     {
-                        Voltage += 5;
+                        Voltage += 400*elapsedClockSeconds;
                     }
                     TotalR = R + ShuntedR;
                 }
@@ -1003,6 +1078,7 @@ namespace Orts.Simulation.RollingStocks
                 {
                     DemandedVoltage = 0;
                     Voltage = 0;
+//                    if(Voltage>DemandedVoltage) Voltage -= 120 * elapsedClockSeconds;
                     TotalR = R + ShuntedR;
                 }
             }
@@ -1027,8 +1103,8 @@ namespace Orts.Simulation.RollingStocks
                     IInductor = (PrevUInductor - (TotalR) * PrevIInductor) * (1 / (Inductance * TimeResponse)) + PrevIInductor;
                     //** And verified, if exceeding MaxCurrent, limited to this value                                   **//
                     //** In a perfect world, if exceeding value, should open line contactor or damage motors            **//
-                    if (IInductor > MaxCurrentA / (DCMotorNumber))
-                        IInductor = (MaxCurrentA / DCMotorNumber);
+                    if (IInductor > (MaxCurrentA * SerialMotorNumber) / (DCMotorNumber))
+                        IInductor = ((MaxCurrentA * SerialMotorNumber) / DCMotorNumber);
                 }
 
             }
@@ -1038,19 +1114,20 @@ namespace Orts.Simulation.RollingStocks
                 else UInductor = Voltage;
                 IInductor = (PrevUInductor - (TotalR) * PrevIInductor) * (1 / (Inductance * TimeResponse)) + PrevIInductor;
 
-                if (IInductor > MaxCurrentA / (DCMotorNumber)) IInductor = (MaxCurrentA / DCMotorNumber);
+                if (IInductor > (MaxCurrentA * SerialMotorNumber) / (DCMotorNumber))
+                    IInductor = ((MaxCurrentA * SerialMotorNumber) / DCMotorNumber);
 
                 //** Displaying information at speed = 0
                 if (IsLeadLocomotive() == true)
                 {
                     if (IsMetric)
                     {
-//                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total)");
+                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)(this.DieselEngines.MaxOutputPowerW / 1000) + "KW, Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total)");
 
                     }
                     else
                     {
-//                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , De power : " + (int)W.ToBhp(this.DieselEngines.MaxOutputPowerW) + "BHP, Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + FullVoltage + "V), R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
                     }
                 }
             }
@@ -1058,10 +1135,21 @@ namespace Orts.Simulation.RollingStocks
             //** Verifying overload and overamp.                                                                        **//
             //** If asked power exceed max usable power, overload is set to True, used to flatten generator voltage     **//
             OverLoad = false;
+
             if ((IInductor * (UInductor + PrevBackEMF)) > (this.DieselEngines.MaxOutputPowerW / DCMotorNumber))
             {
                 OverLoadValue = (IInductor * (UInductor + PrevBackEMF)) - (this.DieselEngines.MaxOutputPowerW / DCMotorNumber);
                 OverLoad = true;
+            }
+
+            DCMotorThrottleIncreaseForbidden = false;
+            if ((IInductor * (UInductor + PrevBackEMF)) > ((this.DieselEngines.MaxOutputPowerW / DCMotorNumber)*0.95))
+            {
+                if (FieldChangeByNotch == true)
+                {
+                    DCMotorThrottleIncreaseForbidden = true;
+//                    Simulator.Confirmer.Information("Throttle up forbidden!");
+                }
             }
 
             //** If Current > Voltage/R, limiting the current: in normal use, could not happen                          **//
@@ -1806,15 +1894,32 @@ namespace Orts.Simulation.RollingStocks
                     //                   Console.WriteLine(CarCount+" cars to heat");
                     foreach (var de in this.DieselEngines)
                     {
-                        if ((de.HeatingRPM != 0) && (de.RealRPM >= (de.HeatingRPM * 0.9)))  // à intégrer, tension minimale de chauffage
+                        //** RPM>Heating RPM & Voltage>Heating Voltage low value
+                        if ((de.HeatingRPM != 0) && (de.RealRPM >= (de.HeatingRPM))&&(Voltage>de.HeatingVoltage)) 
                         {
-                            Simulator.Confirmer.Information("Heating On, " + CarCount + " cars to heat, " + (CarCount * 40000) + "W taken on Diesel Max Power ("+ de.MaximumDieselPowerW + ")");
-                            de.CurrentDieselOutputPowerW -= (CarCount * 40000);
+                            HeatingStatus = true;
+                            //                           Simulator.Confirmer.Information("Heating On, " + CarCount + " cars to heat, " + (CarCount * 40000) + "W taken on Diesel Max Power ("+ de.MaximumDieselPowerW + ")");
+                            HeatingAskedPower = (CarCount * 40000);
+                            if (HeatingAbsorbedPower < HeatingAskedPower) HeatingAbsorbedPower += CarCount*5000 * elapsedClockSeconds;
+                            de.CurrentDieselOutputPowerW -= HeatingAbsorbedPower;
+                        }
+                        //** Auto cut of heating if voltage lower than 0.95 heating voltage OR RPM < 0.95 heating RPM   **//
+                        else if (((de.HeatingRPM != 0) && (de.RealRPM < (de.HeatingRPM*0.95)) || (Voltage < de.HeatingVoltage*0.95))&&(HeatingStatus==true))
+                        {
+                            HeatingAskedPower = 0;
+                            HeatingAbsorbedPower = 0;
+                            HeatingStatus = false;
                         }
                     }
                     
 
                 }
+            }
+            else
+            {
+                HeatingAskedPower = 0;
+                HeatingAbsorbedPower = 0;
+                HeatingStatus = false;
             }
 
         }
@@ -1944,6 +2049,7 @@ namespace Orts.Simulation.RollingStocks
                         GearBox.mstsParams.GearBoxMaxTractiveForceForGearsN[i] *= ThrottleController.MaximumValue;
                 }
                 ThrottleController.Normalize(ThrottleController.MaximumValue);
+                if(SecondControllerActive==true) SecondThrottleController.Normalize(SecondThrottleController.MaximumValue);
                 // correct also .cvf files
                 if (CabViewList.Count > 0)
                     foreach (var cabView in CabViewList)
@@ -1952,7 +2058,7 @@ namespace Orts.Simulation.RollingStocks
                         {
                             foreach ( var control in cabView.CVFFile.CabViewControls)
                             {
-                                if (control is CVCDiscrete && control.ControlType == CABViewControlTypes.THROTTLE && (control as CVCDiscrete).Values.Count > 0 && (control as CVCDiscrete).Values[(control as CVCDiscrete).Values.Count - 1] > 1)
+                                if (control is CVCDiscrete && (control.ControlType == (CABViewControlTypes.THROTTLE) || (control.ControlType == CABViewControlTypes.SECOND_THROTTLE)) && (control as CVCDiscrete).Values.Count > 0 && (control as CVCDiscrete).Values[(control as CVCDiscrete).Values.Count - 1] > 1)
                                 {
                                     var discreteControl = (CVCDiscrete)control;
                                     for (var i = 0; i < discreteControl.Values.Count; i++)
@@ -1963,6 +2069,7 @@ namespace Orts.Simulation.RollingStocks
                         }
                     }
                 ThrottleController.MaximumValue = 1;
+                if (SecondControllerActive == true) SecondThrottleController.MaximumValue = 1;
             }
             // Check also for very low DieselEngineIdleRPM
             if (IdleRPM < 10) IdleRPM = Math.Max(150, MaxRPM / 10);

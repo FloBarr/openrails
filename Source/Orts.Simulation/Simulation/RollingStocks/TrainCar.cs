@@ -374,6 +374,10 @@ namespace Orts.Simulation.RollingStocks
 
         public float LocalThrottlePercent;
         // represents the MU line travelling through the train.  Uncontrolled locos respond to these commands.
+
+        public float LocalSecondThrottlePercent;
+        // represents the second  MU line travelling through the train.  Uncontrolled locos respond to these commands.
+
         public float ThrottlePercent
         {
             get
@@ -398,6 +402,33 @@ namespace Orts.Simulation.RollingStocks
                     Train.MUThrottlePercent = value;
                 else
                     LocalThrottlePercent = value;
+            }
+        }
+
+        public float SecondThrottlePercent
+        {
+            get
+            {
+                if (AcceptMUSignals && Train != null)
+                {
+                    if (Train.LeadLocomotive != null && !((MSTSLocomotive)Train.LeadLocomotive).TrainControlSystem.TractionAuthorization && Train.MUThrottlePercent > 0)
+                    {
+                        return 0;
+                    }
+                    else
+                    {
+                        return Train.MUSecondThrottlePercent;
+                    }
+                }
+                else
+                    return LocalSecondThrottlePercent;
+            }
+            set
+            {
+                if (AcceptMUSignals && Train != null)
+                    Train.MUSecondThrottlePercent = value;
+                else
+                    LocalSecondThrottlePercent = value;
             }
         }
 

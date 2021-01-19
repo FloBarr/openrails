@@ -1960,15 +1960,15 @@ namespace Orts.Viewer3D.RollingStock
                             DataTemp = 0;
                             index = PercentToIndex(DataTemp);
                         }
-                        else if (UserInput.IsDown(UserCommand.ControlThrottleDecrease) == true)
+                        else if ((UserInput.IsDown(UserCommand.ControlThrottleDecrease) == true))
                         {
                             //** "-" pos, decreasing power  **//
                             DataTemp = 0.333F;
                             index = PercentToIndex(DataTemp);
                         }
-                        else if (UserInput.IsDown(UserCommand.ControlThrottleIncrease) == true)
+                        else if ((UserInput.IsDown(UserCommand.ControlThrottleIncrease) == true))
                         {
-                            //** "+" pos, decreasing power  **//
+                            //** "+" pos, increasing power  **//
                             DataTemp = 1;
                             index = PercentToIndex(DataTemp);
                         }
@@ -1984,6 +1984,47 @@ namespace Orts.Viewer3D.RollingStock
                     else
                         index = PercentToIndex(data);
                     break;
+
+                case CABViewControlTypes.SECOND_THROTTLE:
+                    //** Impulsion style throttle control                                                           **//
+                    //** Lever is set on "+" to increase power, "-" to decrease. These positions are unstable       **//
+                    //** When released, the lever come back to a stable intermediate position, holding throttle     **//
+                    //** Throttle set to 0 put the lever on a 0 pos                                                 **//
+                    if (ControlDiscrete.ControlStyle == CABViewControlStyles.IMPULSE)
+                    {
+
+                        float DataTemp;
+                        if ((UserInput.IsDown(UserCommand.ControlSecondThrottleZero) == true)||(data == 0))
+                        {
+                            //** Zero Pos                   **//
+                            DataTemp = 0;
+                            index = PercentToIndex(DataTemp);
+                        }
+                        else if ((UserInput.IsDown(UserCommand.ControlSecondThrottleDecrease) == true))
+                        {
+                            //** "-" pos, decreasing power  **//
+                            DataTemp = 0.333F;
+                            index = PercentToIndex(DataTemp);
+                        }
+                        else if ((UserInput.IsDown(UserCommand.ControlSecondThrottleIncrease) == true))
+                        {
+                            //** "+" pos, increasing power  **//
+                            DataTemp = 1;
+                            index = PercentToIndex(DataTemp);
+                        }
+                        else
+                        {
+                            //** STOP pos, holding power    **//
+                            DataTemp = 0.666F;
+                            index = PercentToIndex(DataTemp);
+                        }
+                    }
+                    //** Enf of impulsion style             **//
+                    //** "Classic" control using percents
+                    else
+                        index = PercentToIndex(data);
+                    break;
+
 
                 case CABViewControlTypes.THROTTLE_DISPLAY:
                     index = PercentToIndex(data);
@@ -2028,19 +2069,19 @@ namespace Orts.Viewer3D.RollingStock
                         ImpulseControl = true;
                         float DataCP = Locomotive.GetCombinedHandleValue(false);
 
-                        if ((UserInput.IsDown(UserCommand.ControlThrottleZero) == true) || (DataCP == 0.5))
+                        if ((UserInput.IsDown(UserCommand.ControlThrottleZero) == true) || (UserInput.IsDown(UserCommand.ControlSecondThrottleZero) == true)||(DataCP == 0.5))
                         {
                             //** Zero Pos                   **//
                             if (Locomotive.DynamicBrake == false) index = 3;
                             else index = 4;
                         }
-                        else if (UserInput.IsDown(UserCommand.ControlThrottleDecrease) == true)
+                        else if ((UserInput.IsDown(UserCommand.ControlThrottleDecrease) == true)|| (UserInput.IsDown(UserCommand.ControlSecondThrottleDecrease) == true))
                         {
                             //** "-" pos, decreasing power  **//
                             if (DataCP <= 0.5) index = 2;
                             else index = 7;
                         }
-                        else if (UserInput.IsDown(UserCommand.ControlThrottleIncrease) == true)
+                        else if ((UserInput.IsDown(UserCommand.ControlThrottleIncrease) == true)|| (UserInput.IsDown(UserCommand.ControlSecondThrottleIncrease) == true))
                         {
                             //** "+" pos, decreasing power  **//
                             if (DataCP <= 0.5) index = 0;
@@ -2181,6 +2222,10 @@ namespace Orts.Viewer3D.RollingStock
                 case CABViewControlTypes.ORTS_TCS48:
                     index = (int)data;
                     break;
+
+                case CABViewControlTypes.ORTS_THROTTLE_UP_FORBIDDEN:
+                    index = (int)data; break;
+                    break;
             }
             // If it is a control with NumPositions and NumValues, the index becomes the reference to the Positions entry, which in turn is the frame index within the .ace file
             if (ImpulseControl == false)
@@ -2227,6 +2272,7 @@ namespace Orts.Viewer3D.RollingStock
             {
                 case CABViewControlTypes.REGULATOR:
                 case CABViewControlTypes.THROTTLE: Locomotive.SetThrottleValue(ChangedValue(Locomotive.ThrottleController.IntermediateValue)); break;
+                case CABViewControlTypes.SECOND_THROTTLE: Locomotive.SetThrottleValue(ChangedValue(Locomotive.SecondThrottleController.IntermediateValue)); break;
                 case CABViewControlTypes.ENGINE_BRAKE: Locomotive.SetEngineBrakeValue(ChangedValue(Locomotive.EngineBrakeController.IntermediateValue)); break;
                 case CABViewControlTypes.BRAKEMAN_BRAKE: Locomotive.SetBrakemanBrakeValue(ChangedValue(Locomotive.BrakemanBrakeController.IntermediateValue)); break;
                 case CABViewControlTypes.TRAIN_BRAKE: Locomotive.SetTrainBrakeValue(ChangedValue(Locomotive.TrainBrakeController.IntermediateValue)); break;

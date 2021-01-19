@@ -112,17 +112,14 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                 if (setting == "diesel")
                 {
                     DEList.Add(new DieselEngine());
-
                     DEList[i].Parse(stf, loco);
                     DEList[i].Initialize(true);
 
                     // sets flag to indicate that a diesel eng prime mover code block has been defined by user, otherwise OR will define one through the next code section using "MSTS" values
                     DEList[i].DieselEngineConfigured = true;
                 }
-                
                 if ((!DEList[i].IsInitialized))
                 {
-                    STFException.TraceWarning(stf, "Diesel engine model has some errors - loading MSTS format");
                     DEList[i].InitFromMSTS((MSTSDieselLocomotive)Locomotive);
                     DEList[i].Initialize(true);
                 }
@@ -558,6 +555,11 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
             //** Test delay before starting **//
             DelayBeforeStarting = copy.DelayBeforeStarting;
 
+            HeatingRPM = copy.HeatingRPM;
+            HeatingVoltage = copy.HeatingVoltage;
+
+            DieselSerie = copy.DieselSerie;
+
             if (copy.GearBox != null)
             {
                 GearBox = new GearBox(copy.GearBox, this);
@@ -648,7 +650,12 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
         /// Heating RPM
         /// </summary>
         public float HeatingRPM;
-        
+
+        /// <summary>
+        /// Heating Voltage trigger
+        /// </summary>
+        public float HeatingVoltage;
+
         public int HeatingRPMCalls=0;
 
         /// <summary>
@@ -882,6 +889,8 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                     case "idlerpm": IdleRPM = stf.ReadFloatBlock(STFReader.UNITS.None, 0); initLevel |= SettingsFlags.IdleRPM; break;
                     case "maxrpm": MaxRPM = stf.ReadFloatBlock(STFReader.UNITS.None, 0);initLevel |= SettingsFlags.MaxRPM; break;
                     case "heatingrpm": HeatingRPM = stf.ReadFloatBlock(STFReader.UNITS.None, 0); break;
+                    case "heatingvoltage": HeatingVoltage = stf.ReadFloatBlock(STFReader.UNITS.None, 0); break;
+
                     case "startingrpm": StartingRPM = stf.ReadFloatBlock(STFReader.UNITS.None, 0); initLevel |= SettingsFlags.StartingRPM; break;
                     case "startingconfirmrpm": StartingConfirmationRPM = stf.ReadFloatBlock(STFReader.UNITS.None, 0); initLevel |= SettingsFlags.StartingConfirmRPM; break;
                     case "changeuprpmps": ChangeUpRPMpS = stf.ReadFloatBlock(STFReader.UNITS.None, 0); initLevel |= SettingsFlags.ChangeUpRPMpS; break;
@@ -925,6 +934,8 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                     case "aessforceforstartup": AESSForceForStartup = stf.ReadFloatBlock(STFReader.UNITS.Force, 0); AESSEquiped = true; AESSEnabled = true; break;
                     case "aessmainreslowpressure": AESSMainResLowPressure = stf.ReadFloatBlock(STFReader.UNITS.PressureDefaultPSI, 120f); AESSEquiped = true; AESSEnabled = true; break;
                     //** End of AESS    **//
+
+                    case "dieselserie": DieselSerie= stf.ReadFloatBlock(STFReader.UNITS.None, 0); break;
 
                     //** For Test, delay before starting    **//
                     case "delaybeforestarting": DelayBeforeStarting = stf.ReadFloatBlock(STFReader.UNITS.Time, 0.0f); break;
@@ -1025,7 +1036,13 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
             //** END OF AESS    **//
 
             if (EngineStatus == DieselEngine.Status.Running)
-                DemandedThrottlePercent = locomotive.ThrottlePercent;
+                if ((locomotive.SecondControllerActive == true) && (DieselSerie == 2))
+                {
+                    DemandedThrottlePercent = locomotive.SecondThrottlePercent;
+                }
+                else
+                    DemandedThrottlePercent = locomotive.ThrottlePercent;
+
             else
                 DemandedThrottlePercent = 0f;
 
