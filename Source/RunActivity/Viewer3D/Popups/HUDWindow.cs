@@ -589,14 +589,16 @@ namespace Orts.Viewer3D.Popups
             var locomotive = Viewer.PlayerLocomotive;
             var train = locomotive.Train;
 
-            TableAddLines(table, String.Format("{8}\t\t{0} {4}\t\t{1} {5:F0}%\t\t{2} {6:F0}%\t\t{3} {7}",
+            TableAddLines(table, String.Format("{8}\t\t{0} {5}\t\t{1} {6:F0}%\t\t{2} {7:F0}%\t\t{3} {8:F0}%\t\t{4} {9}",
                 Viewer.Catalog.GetString("Direction"),
                 Viewer.PlayerLocomotive is MSTSSteamLocomotive ? Viewer.Catalog.GetParticularString("Steam", "Reverser") : Viewer.Catalog.GetParticularString("NonSteam", "Reverser"),
                 Viewer.PlayerLocomotive is MSTSSteamLocomotive ? Viewer.Catalog.GetString("Regulator") : Viewer.Catalog.GetString("Throttle"),
+                Viewer.PlayerLocomotive is MSTSSteamLocomotive ? Viewer.Catalog.GetString("Second Regulator") : Viewer.Catalog.GetString("Second Throttle"),
                 Viewer.Catalog.GetString("Dynamic brake"),
                 FormatStrings.Catalog.GetParticularString("Reverser", GetStringAttribute.GetPrettyName(train.MUDirection)),
                 train.MUReverserPercent,
                 train.MUThrottlePercent,
+                train.MUSecondThrottlePercent,
                 train.MUDynamicBrakePercent >= 0 ? string.Format("{0:F0}%", train.MUDynamicBrakePercent) : Viewer.Catalog.GetString("off"),
                 Viewer.Catalog.GetString("PlayerLoco")));
             TableAddLine(table);

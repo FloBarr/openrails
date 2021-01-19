@@ -81,6 +81,7 @@ namespace Orts.Formats.Msts
         AMMETER_ABS,
         LOAD_METER,
         THROTTLE,
+        SECOND_THROTTLE,
         PANTOGRAPH,
         TRAIN_BRAKE,
         FRICTION_BRAKE,
@@ -229,6 +230,8 @@ namespace Orts.Formats.Msts
         ORTS_TCS48,
 
         ORTS_GENERATOR_VOLTAGE,
+        RPM_HELPER,
+        ORTS_THROTTLE_UP_FORBIDDEN,
 
         // Further CabViewControlTypes must be added above this line, to avoid their malfunction in 3DCabs
         EXTERNALWIPERS,
@@ -298,7 +301,6 @@ namespace Orts.Formats.Msts
         {
             stf.MustMatch("(");
             int count = stf.ReadInt(null);
-
             stf.ParseBlock(new STFReader.TokenProcessor[] {
                 new STFReader.TokenProcessor("dial", ()=>{ Add(new CVCDial(stf, basepath)); }),
                 new STFReader.TokenProcessor("gauge", ()=>{ Add(new CVCGauge(stf, basepath)); }),

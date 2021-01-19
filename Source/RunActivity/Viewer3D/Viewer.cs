@@ -482,7 +482,9 @@ namespace Orts.Viewer3D
             NotchedThrottleCommand.Receiver = (MSTSLocomotive)PlayerLocomotive;
             NotchedSecondThrottleCommand.Receiver = (MSTSLocomotive)PlayerLocomotive;
 
-            ContinuousThrottleCommand.Receiver = (MSTSLocomotive)PlayerLocomotive;   
+            ContinuousThrottleCommand.Receiver = (MSTSLocomotive)PlayerLocomotive;
+            ContinuousSecondThrottleCommand.Receiver = (MSTSLocomotive)PlayerLocomotive;
+
             TrainBrakeCommand.Receiver = (MSTSLocomotive)PlayerLocomotive;
             EngineBrakeCommand.Receiver = (MSTSLocomotive)PlayerLocomotive;
             DynamicBrakeCommand.Receiver = (MSTSLocomotive)PlayerLocomotive;

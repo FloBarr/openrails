@@ -117,6 +117,8 @@ namespace Orts.Simulation.Physics
         // These signals pass through to all cars and locomotives on the train
         public Direction MUDirection = Direction.N;      // set by player locomotive to control MU'd locomotives
         public float MUThrottlePercent;                  // set by player locomotive to control MU'd locomotives
+        public float MUSecondThrottlePercent;
+
         public int MUGearboxGearIndex;                   // set by player locomotive to control MU'd locomotives
         public float MUReverserPercent = 100;            // steam engine direction/cutoff control for MU'd locomotives
         public float MUDynamicBrakePercent = -1;         // dynamic brake control for MU'd locomotives, <0 for off
@@ -655,6 +657,7 @@ namespace Orts.Simulation.Physics
             if (TrainType == TRAINTYPE.STATIC) ColdStart = true;
             MUDirection = (Direction)inf.ReadInt32();
             MUThrottlePercent = inf.ReadSingle();
+            MUSecondThrottlePercent = inf.ReadSingle();
             MUGearboxGearIndex = inf.ReadInt32();
             MUDynamicBrakePercent = inf.ReadSingle();
             EqualReservoirPressurePSIorInHg = inf.ReadSingle();
@@ -1533,6 +1536,8 @@ namespace Orts.Simulation.Physics
                 }
             }
             MUThrottlePercent = initialThrottlepercent;
+            MUSecondThrottlePercent = initialThrottlepercent;
+
             AITrainThrottlePercent = initialThrottlepercent;
 
             TraincarsInitializeMoving();
