@@ -59,6 +59,10 @@ namespace Orts.Simulation.RollingStocks
     {
         //** New UpdateMotiveForce parameters   **//
         /// <summary>
+        /// Max Full Voltage (limiting line voltage)
+        /// </summary> 
+        public float MotorFullVoltage = 0;
+        /// <summary>
         /// Voltage supplied by generator
         /// </summary> 
         public float Voltage = 0;
@@ -288,6 +292,8 @@ namespace Orts.Simulation.RollingStocks
                     break;
 
                 //** For test, new UpdateMotiveForce. Would be better in MSTSLocomotive
+                case "engine(ortsdcmotorfullvoltage":
+                    MotorFullVoltage = stf.ReadFloatBlock(STFReader.UNITS.None, 1500f); break;
                 case "engine(ortsdcmotorresistancebench": 
                     DCMotorResistanceBench = stf.ReadBoolBlock(false);
                     Trace.TraceInformation("Resistance Bench ? " + DCMotorResistanceBench);
@@ -397,6 +403,7 @@ namespace Orts.Simulation.RollingStocks
             PowerSupply.Copy(locoCopy.PowerSupply);
 
             HasDCMotor = locoCopy.HasDCMotor;
+            MotorFullVoltage = locoCopy.MotorFullVoltage;
             FieldChangeNumber = locoCopy.FieldChangeNumber;
             FieldChangeSpeedUpMatrix = locoCopy.FieldChangeSpeedUpMatrix;
             FieldChangeSpeedDownMatrix = locoCopy.FieldChangeSpeedDownMatrix;
@@ -543,6 +550,8 @@ namespace Orts.Simulation.RollingStocks
             float nextNotchValue = 1f;
 
             float prevMaxVoltageValue=0;
+
+            if (FullVoltage > MotorFullVoltage) FullVoltage = MotorFullVoltage;
 
             if (this.IsLeadLocomotive())
             {
@@ -780,12 +789,12 @@ namespace Orts.Simulation.RollingStocks
                 {
                     if (IsMetric)
                     {
-                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + PowerSupply.LineVoltageV + "V), R=" + TotalR + " ohm, I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total)");
+                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + MotorFullVoltage + "V), R=" + TotalR + " ohm, I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total)");
 
                     }
                     else
                     {
-                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + PowerSupply.LineVoltageV + "V), R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information("Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , Alt=" + (int)Voltage + "V (Demanded:" + DemandedVoltage + "V), Full Voltage = " + MotorFullVoltage + "V), R=" + TotalR + " ohm, Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
                     }
                 }
             }
