@@ -960,6 +960,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
             ExhaustRange = MaxExhaust - InitialExhaust;
             ExhaustSteadyColor.A = 10;
             ExhaustDecelColor.A = 10;
+            IdleRPMSave = IdleRPM;
         }
 
         public bool IsHeatingRPMCommand()
@@ -1064,11 +1065,19 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerSupplies
                 if ((ThrottleRPMTab != null) && (locomotive.DieselEngines[0].IsHeatingRPMCommand() == true))
                 {
 
-                    float HeatingDemandedThrottlePercent;
-                    float HeatingPercent = ((HeatingRPM / (IdleRPMSave + MaxRPM)) * 100);
+                    if(locomotive.FieldChangeByNotch==false)
+                    {
+                        float HeatingDemandedThrottlePercent;
+                        float HeatingPercent = ((HeatingRPM / (IdleRPMSave + MaxRPM)) * 100);
 
-                    HeatingDemandedThrottlePercent = HeatingPercent + (((100 - HeatingPercent) / 100) * demandedThrottlePercent);
-                    DemandedRPM = ThrottleRPMTab[HeatingDemandedThrottlePercent];
+                        HeatingDemandedThrottlePercent = HeatingPercent + (((100 - HeatingPercent) / 100) * demandedThrottlePercent);
+                        DemandedRPM = ThrottleRPMTab[HeatingDemandedThrottlePercent];
+                    }
+                    else
+                    {
+                        DemandedRPM = ThrottleRPMTab[demandedThrottlePercent];
+                        if (DemandedRPM < IdleRPM) DemandedRPM = IdleRPM;
+                    }
 
 //                    Trace.TraceInformation("Heating RPM : " + DemandedRPM+" ( Idle original"+ IdleRPMSave + "rpm)");
                 }

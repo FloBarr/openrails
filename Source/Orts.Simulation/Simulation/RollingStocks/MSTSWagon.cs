@@ -91,6 +91,10 @@ namespace Orts.Simulation.RollingStocks
         public float Variable2;
         public float Variable3;
 
+        //** Added FB : engine sounds related to diesel force
+        public float Variable4; // turbocharger value
+        public float Variable5; // engine force value in %
+
         // wag file data
         public string MainShapeFileName;
         public string FreightShapeFileName;

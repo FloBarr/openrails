@@ -190,6 +190,8 @@ namespace Orts.Viewer3D.Debugging
                     var Variable1 = selectedSoundSource.Car.Variable1;
                     var Variable2 = selectedSoundSource.Car.Variable2;
                     var Variable3 = selectedSoundSource.Car.Variable3;
+                    var Variable4 = selectedSoundSource.Car.Variable4;
+                    var Variable5 = selectedSoundSource.Car.Variable5;
 
                     if (selectedSoundSource.Car is MSTSSteamLocomotive)
                     {
@@ -206,6 +208,8 @@ namespace Orts.Viewer3D.Debugging
                     variable1.Text = Variable1.ToString("0.#%");
                     variable2.Text = Variable2.ToString("0.#%");
                     variable3.Text = Variable3.ToString("0.#%");
+                    variable4.Text = Variable4.ToString("0.#%");
+                    variable5.Text = Variable5.ToString("0.#%");
                 }
                 else
                 {
@@ -262,6 +266,31 @@ namespace Orts.Viewer3D.Debugging
         private void inactiveSoundList_KeyPress(object sender, KeyPressEventArgs e)
         {
             e.Handled = true;
+        }
+
+        private void tableLayoutPanel2_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+        private void variable4_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void variable3_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void variable2_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void variable5_TextChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }

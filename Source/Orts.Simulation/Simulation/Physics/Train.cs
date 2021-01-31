@@ -21117,22 +21117,30 @@ namespace Orts.Simulation.Physics
                             {
                                 (car as MSTSElectricLocomotive).Variable1 = 70;
                                 (car as MSTSElectricLocomotive).Variable2 = 70;
+                                (car as MSTSElectricLocomotive).Variable4 = 70;
+                                (car as MSTSElectricLocomotive).Variable5 = 70;
                             }
                             else if (car is MSTSDieselLocomotive)
                             {
                                 (car as MSTSDieselLocomotive).Variable1 = 0.7f;
                                 (car as MSTSDieselLocomotive).Variable2 = 0.7f;
+                                (car as MSTSDieselLocomotive).Variable4 = 0.7f;
+                                (car as MSTSDieselLocomotive).Variable5 = 0.7f;
                             }
                             else if (car is MSTSSteamLocomotive)
                             {
                                 (car as MSTSSteamLocomotive).Variable1 = car.AbsSpeedMpS / car.DriverWheelRadiusM / MathHelper.Pi * 5;
                                 (car as MSTSSteamLocomotive).Variable2 = 0.7f;
+                                (car as MSTSSteamLocomotive).Variable4 = 0.7f;
+                                (car as MSTSSteamLocomotive).Variable5 = 0.7f;
                             }
                         }
                         else if (car is MSTSLocomotive)
                         {
                             (car as MSTSLocomotive).Variable1 = 0;
                             (car as MSTSLocomotive).Variable2 = 0;
+                            (car as MSTSLocomotive).Variable4 = 0;
+                            (car as MSTSLocomotive).Variable5 = 0;
                         }
                     }
 #if INDIVIDUAL_CONTROL
