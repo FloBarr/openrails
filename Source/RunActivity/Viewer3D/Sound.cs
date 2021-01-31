@@ -1400,6 +1400,8 @@ namespace Orts.Viewer3D
                 case Orts.Formats.Msts.VolumeCurve.Controls.Variable1Controlled: return car.Variable1;
                 case Orts.Formats.Msts.VolumeCurve.Controls.Variable2Controlled: return car.Variable2;
                 case Orts.Formats.Msts.VolumeCurve.Controls.Variable3Controlled: return car.Variable3;
+                case Orts.Formats.Msts.VolumeCurve.Controls.Variable4Controlled: return car.Variable4;
+                case Orts.Formats.Msts.VolumeCurve.Controls.Variable5Controlled: return car.Variable5;
                 case Orts.Formats.Msts.VolumeCurve.Controls.BrakeCylControlled: return car.BrakeSystem.GetCylPressurePSI();
                 case Orts.Formats.Msts.VolumeCurve.Controls.CurveForceControlled: return car.CurveForceNFiltered;
                 default: return 0;
@@ -1818,6 +1820,8 @@ namespace Orts.Viewer3D
                 case Orts.Formats.Msts.Variable_Trigger.Events.Variable1_Dec_Past:
                 case Orts.Formats.Msts.Variable_Trigger.Events.Variable2_Dec_Past:
                 case Orts.Formats.Msts.Variable_Trigger.Events.Variable3_Dec_Past:
+                case Orts.Formats.Msts.Variable_Trigger.Events.Variable4_Dec_Past:
+                case Orts.Formats.Msts.Variable_Trigger.Events.Variable5_Dec_Past:
                 case Orts.Formats.Msts.Variable_Trigger.Events.BrakeCyl_Dec_Past:
                 case Orts.Formats.Msts.Variable_Trigger.Events.CurveForce_Dec_Past:
                     if (newValue < SMS.Threshold)
@@ -1832,6 +1836,8 @@ namespace Orts.Viewer3D
                 case Orts.Formats.Msts.Variable_Trigger.Events.Variable1_Inc_Past:
                 case Orts.Formats.Msts.Variable_Trigger.Events.Variable2_Inc_Past:
                 case Orts.Formats.Msts.Variable_Trigger.Events.Variable3_Inc_Past:
+                case Orts.Formats.Msts.Variable_Trigger.Events.Variable4_Inc_Past:
+                case Orts.Formats.Msts.Variable_Trigger.Events.Variable5_Inc_Past:
                 case Orts.Formats.Msts.Variable_Trigger.Events.BrakeCyl_Inc_Past:
                 case Orts.Formats.Msts.Variable_Trigger.Events.CurveForce_Inc_Past:
                     if (newValue > SMS.Threshold)
@@ -1902,6 +1908,12 @@ namespace Orts.Viewer3D
                 case Orts.Formats.Msts.Variable_Trigger.Events.Variable3_Dec_Past:
                 case Orts.Formats.Msts.Variable_Trigger.Events.Variable3_Inc_Past:
                     return car.Variable3;
+                case Orts.Formats.Msts.Variable_Trigger.Events.Variable4_Dec_Past:
+                case Orts.Formats.Msts.Variable_Trigger.Events.Variable4_Inc_Past:
+                    return car.Variable4;
+                case Orts.Formats.Msts.Variable_Trigger.Events.Variable5_Dec_Past:
+                case Orts.Formats.Msts.Variable_Trigger.Events.Variable5_Inc_Past:
+                    return car.Variable5;
                 case Orts.Formats.Msts.Variable_Trigger.Events.BrakeCyl_Dec_Past:
                 case Orts.Formats.Msts.Variable_Trigger.Events.BrakeCyl_Inc_Past:
                     return car.BrakeSystem.GetCylPressurePSI();
