@@ -428,6 +428,8 @@ namespace ORTS.Settings
             Commands[(int)UserCommand.ControlThrottleDecrease] = new UserCommandKeyInput(0x1E);
             Commands[(int)UserCommand.ControlThrottleIncrease] = new UserCommandKeyInput(0x20);
             Commands[(int)UserCommand.ControlThrottleZero] = new UserCommandKeyInput(0x1E, KeyModifiers.Control);
+            Commands[(int)UserCommand.ControlThrottleMax] = new UserCommandKeyInput(0x20, KeyModifiers.Control);
+
             Commands[(int)UserCommand.ControlTrainBrakeDecrease] = new UserCommandKeyInput(0x27);
             Commands[(int)UserCommand.ControlTrainBrakeIncrease] = new UserCommandKeyInput(0x28);
             Commands[(int)UserCommand.ControlTrainBrakeZero] = new UserCommandKeyInput(0x27, KeyModifiers.Control);

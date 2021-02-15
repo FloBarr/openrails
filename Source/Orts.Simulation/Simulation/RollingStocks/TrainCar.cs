@@ -2335,7 +2335,7 @@ namespace Orts.Simulation.RollingStocks
         Vector3 VibrationOffsetM;
         Vector3 VibrationRotationRad;
         Vector3 VibrationRotationVelocityRadpS;
-        Vector2 VibrationTranslationM;
+        public Vector2 VibrationTranslationM;
         Vector2 VibrationTranslationVelocityMpS;
 
         int VibrationTrackNode;
@@ -2438,22 +2438,25 @@ namespace Orts.Simulation.RollingStocks
 
         private void AddVibrations(float factor)
         {
+//            Trace.TraceInformation(AbsSpeedMpS + " / " + Train.AllowedMaxSpeedMpS);
+
             // NOTE: For low angles (as our vibration rotations are), sin(angle) ~= angle, and since the displacement at the end of the car is sin(angle) = displacement/half-length, sin(displacement/half-length) * half-length ~= displacement.
             switch (Simulator.Random.Next(4))
             {
                 case 0:
-                    VibrationRotationVelocityRadpS.Y += factor * Simulator.Settings.CarVibratingLevel * VibrationIntroductionStrength * 2 / CarLengthM;
+                    VibrationRotationVelocityRadpS.Y += (factor * Simulator.Settings.CarVibratingLevel * VibrationIntroductionStrength * 2 / CarLengthM)*(AbsSpeedMpS/ Train.AllowedMaxSpeedMpS);
                     break;
                 case 1:
-                    VibrationRotationVelocityRadpS.Z += factor * Simulator.Settings.CarVibratingLevel * VibrationIntroductionStrength * 2 / CarLengthM;
+                    VibrationRotationVelocityRadpS.Z += (factor * Simulator.Settings.CarVibratingLevel * VibrationIntroductionStrength * 2 / CarLengthM)*(AbsSpeedMpS / Train.AllowedMaxSpeedMpS);
                     break;
                 case 2:
-                    VibrationTranslationVelocityMpS.X += factor * Simulator.Settings.CarVibratingLevel * VibrationIntroductionStrength;
+                    VibrationTranslationVelocityMpS.X += (factor * Simulator.Settings.CarVibratingLevel * VibrationIntroductionStrength) * (AbsSpeedMpS / Train.AllowedMaxSpeedMpS);
                     break;
                 case 3:
-                    VibrationTranslationVelocityMpS.Y += factor * Simulator.Settings.CarVibratingLevel * VibrationIntroductionStrength;
+                    VibrationTranslationVelocityMpS.Y += (factor * Simulator.Settings.CarVibratingLevel * VibrationIntroductionStrength) * (AbsSpeedMpS / Train.AllowedMaxSpeedMpS);
                     break;
             }
+
         }
         #endregion
 
