@@ -933,7 +933,7 @@ namespace Orts.Simulation.RollingStocks
                         Voltage = 0;
                 }
 
-                Simulator.Confirmer.Information((HeatingNotch/NotchCount) + " / "+ (PrevNotch * ((NotchCount - FieldChangeNumber)) / (NotchCount)) + " - "+DemandedVoltage+" / "+ this.DieselEngines[0].HeatingVoltage);
+//                Simulator.Confirmer.Information((HeatingNotch/NotchCount) + " / "+ (PrevNotch * ((NotchCount - FieldChangeNumber)) / (NotchCount)) + " - "+DemandedVoltage+" / "+ this.DieselEngines[0].HeatingVoltage);
 
                 if ((DemandedVoltage < this.DieselEngines[0].HeatingVoltage)&&((PrevNotch*((NotchCount- FieldChangeNumber)) / (NotchCount) > (HeatingNotch/NotchCount))))
                 {
@@ -1401,7 +1401,7 @@ namespace Orts.Simulation.RollingStocks
                     Math.Min(Math.Min(Variable2 + elapsedClockSeconds * PercentChangePerSec, EngineRPMRatio), 1);
             }
 
-            Trace.TraceInformation(EngineRPMRatio+" - "+ DieselEngines[0].RealRPM + " " + DieselEngines[0].IdleRPM+" "+ DieselEngines[0].IdleRPMSave + " " + DieselEngines[0].MaxRPM);
+//            Trace.TraceInformation(EngineRPMRatio+" - "+ DieselEngines[0].RealRPM + " " + DieselEngines[0].IdleRPM+" "+ DieselEngines[0].IdleRPMSave + " " + DieselEngines[0].MaxRPM);
 
 
             //            if(Variable4!= (DieselEngines[0].DieselFlowLps * 3600) / DieselEngines[0].DieselConsumptionTab.MaxY())
@@ -1436,12 +1436,12 @@ namespace Orts.Simulation.RollingStocks
             {
                 if (Variable5 < var5Target)
 //                    Variable5 = Variable5 + elapsedClockSeconds * (PercentChangePerSec);
-                    Variable5 = Variable5 + elapsedClockSeconds * (ChangeUpRPMpS / 100);
+                    Variable5 = Variable5 + elapsedClockSeconds * (ChangeUpRPMpS / 10);
                 else
 //                    Variable5 = Variable5 - elapsedClockSeconds * (PercentChangePerSec);
-                    Variable5 = Variable5 - elapsedClockSeconds * (ChangeDownRPMpS / 100);
+                    Variable5 = Variable5 - elapsedClockSeconds * (ChangeDownRPMpS / 10);
             }
-            if (Math.Abs(Variable5 - var5Target) < 0.025) Variable5 = var5Target;
+            if (Math.Abs(Variable5 - var5Target) < 0.005) Variable5 = var5Target;
             if (Variable5 < 0) Variable5 = 0;
             if (Variable5 > 1) Variable5 = 1;
 
@@ -1450,15 +1450,17 @@ namespace Orts.Simulation.RollingStocks
             if(Variable4!= var4Target)
             {
                 if (Variable4 < var4Target) Variable4 = Variable4 + elapsedClockSeconds * (ChangeUpRPMpS/100);
-                else Variable4 = Variable4 - elapsedClockSeconds * (ChangeDownRPMpS / 100);
+                else Variable4 = Variable4 - elapsedClockSeconds * (ChangeDownRPMpS/100);
             }
-            //            Trace.TraceInformation(var4Target+" -> "+Variable4+" / "+DieselFlowLps+" - "+(DieselUsedPerHourAtMaxPowerL/3600));
-            if (Math.Abs(Variable4 - var4Target) < 0.025) Variable4 = var4Target;
+
+//            Trace.TraceInformation(var4Target+" -> "+Variable4+" / "+(ChangeDownRPMpS/10));
+
+            if (Math.Abs(Variable4 - var4Target) < 0.005) Variable4 = var4Target;
             if (Variable4 < 0) Variable4 = 0;
             if (Variable4 > 1) Variable4 = 1;
 
 
-            Trace.TraceInformation((ChangeDownRPMpS/100) + " - " + (ChangeUpRPMpS / 100) + " / " + PercentChangePerSec + " / " + var4Target + " - " + var5Target);
+//            Trace.TraceInformation((ChangeDownRPMpS/100) + " - " + (ChangeUpRPMpS / 100) + " / " + PercentChangePerSec + " / " + var4Target + " - " + var5Target);
 
             EngineRPM = Variable2 * (MaxRPM - IdleRPM) + IdleRPM;
 

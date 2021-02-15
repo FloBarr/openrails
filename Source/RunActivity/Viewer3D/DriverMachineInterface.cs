@@ -373,6 +373,8 @@ namespace Orts.Viewer3D
             {
                 x = position.X + (int)(lines.X * Scale);
                 y = position.Y + (int)(lines.Y * Scale);
+                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+
                 var length = (int)(lines.Z * Scale);
                 spriteBatch.Draw(ColorTexture, new Rectangle(x, y, length, 1), null, Color.White, lines.W, new Vector2(0, 0), SpriteEffects.None, 0);
             }
@@ -405,11 +407,17 @@ namespace Orts.Viewer3D
             {
                 x = position.X + (int)(text.Position.X * Scale);
                 y = position.Y + (int)(text.Position.Y * Scale);
+
+                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+
                 text.Draw(spriteBatch, new Point(x, y));
             }
 
             x = position.X + (int)(Width * Scale / 2f);
             y = position.Y + (int)(Height * Scale / 2f);
+
+            y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+
             spriteBatch.Draw(NeedleTexture, new Vector2(x, y), null, NeedleColor, CurrentSpeedAngle, new Vector2(8, 105), Scale, SpriteEffects.None, 0);
 
             foreach (var text in CurrentSpeed)
@@ -418,6 +426,9 @@ namespace Orts.Viewer3D
                     continue;
                 x = position.X + (int)(text.Position.X * Scale);
                 y = position.Y + (int)(text.Position.Y * Scale);
+                
+                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+
                 text.Draw(spriteBatch, new Point(x, y));
             }
 
@@ -425,6 +436,9 @@ namespace Orts.Viewer3D
             {
                 x = position.X + (int)(ReleaseSpeed.Position.X * Scale);
                 y = position.Y + (int)(ReleaseSpeed.Position.Y * Scale);
+                
+                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+
                 ReleaseSpeed.Draw(spriteBatch, new Point(x, y));
             }
         }
@@ -506,7 +520,9 @@ namespace Orts.Viewer3D
             // Hack to adjust for track monitor
             position.X += 8;
             position.Y += 20;
-            
+
+//            y += (int)VibrationTranslationM.Y * 100;
+
             CircularSpeedGauge.Draw(spriteBatch, position);
         }
     }

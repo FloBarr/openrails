@@ -197,6 +197,8 @@ namespace Orts.Viewer3D
             frustumRight.Y = xnaView.M21 * frustumRightProjected.X + xnaView.M23 * frustumRightProjected.Z;
             frustumRight.Z = xnaView.M31 * frustumRightProjected.X + xnaView.M33 * frustumRightProjected.Z;
             frustumRight.Normalize();
+
+            
         }
 
         // Cull for fov
@@ -545,6 +547,7 @@ namespace Orts.Viewer3D
 
         protected virtual void RotateDown(float speed)
         {
+
             RotationXRadians += speed;
             RotationXRadians = VerticalClamper.Clamp(RotationXRadians);
             MoveCamera();
@@ -876,7 +879,7 @@ namespace Orts.Viewer3D
         }
 
         public void UpdateLocation(WorldPosition worldPosition)
-        {
+        {        
             if (worldPosition != null)
             {
                 cameraLocation.TileX = worldPosition.TileX;
@@ -943,12 +946,26 @@ namespace Orts.Viewer3D
                     cameraLocation.Location.X = -attachedLocation.X;
                     cameraLocation.Location.Y = attachedLocation.Y;
                     cameraLocation.Location.Z = -attachedLocation.Z;
+                    //** Integrating vibrations and acceleration to camera position  **//
+                    if (Viewer.Camera is ThreeDimCabCamera)
+                    {
+                        cameraLocation.Location.X += (Viewer.PlayerLocomotive.VibrationTranslationM.X / 10);
+                        cameraLocation.Location.Y += (Viewer.PlayerLocomotive.VibrationTranslationM.Y / 5f);
+                        cameraLocation.Location.Z += (Viewer.PlayerLocomotive.AccelerationMpSS / 150);
+                    }
                 }
                 else
                 {
                     cameraLocation.Location.X = attachedLocation.X;
                     cameraLocation.Location.Y = attachedLocation.Y;
                     cameraLocation.Location.Z = attachedLocation.Z;
+                    if (Viewer.Camera is ThreeDimCabCamera)
+                    {
+                        //** Integrating vibrations to camera position  **//
+                        cameraLocation.Location.X += (Viewer.PlayerLocomotive.VibrationTranslationM.X / 10);
+                        cameraLocation.Location.Y += (Viewer.PlayerLocomotive.VibrationTranslationM.Y / 5f);
+                        cameraLocation.Location.Z -= (Viewer.PlayerLocomotive.AccelerationMpSS / 150);
+                    }
                 }
                 cameraLocation.Location.Z *= -1;
                 cameraLocation.Location = Vector3.Transform(cameraLocation.Location, attachedCar.WorldPosition.XNAMatrix);

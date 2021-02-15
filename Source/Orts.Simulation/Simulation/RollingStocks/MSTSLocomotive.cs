@@ -429,6 +429,7 @@ namespace Orts.Simulation.RollingStocks
             TrainBrakeController = new ScriptedBrakeController(this);
             EngineBrakeController = new ScriptedBrakeController(this);
             ThrottleController = new MSTSNotchController();
+            SecondThrottleController = new MSTSNotchController();
             DynamicBrakeController = new MSTSNotchController();
             TrainControlSystem = new ScriptedTrainControlSystem(this);
         }
@@ -990,6 +991,7 @@ namespace Orts.Simulation.RollingStocks
             //ThrottleController = MSTSEngineController.Copy(locoCopy.ThrottleController);
             ThrottleController = (MSTSNotchController)locoCopy.ThrottleController.Clone();
             SecondThrottleController = (MSTSNotchController)locoCopy.SecondThrottleController.Clone();
+
             DCMotorThrottleIncreaseForbidden = locoCopy.DCMotorThrottleIncreaseForbidden;
 
             SteamHeatController = (MSTSNotchController)locoCopy.SteamHeatController.Clone();
@@ -1555,15 +1557,28 @@ namespace Orts.Simulation.RollingStocks
             // Update dynamic brake force
             if (DynamicBrakePercent > 0 && DynamicBrakeForceCurves != null && AbsSpeedMpS > 0)
             {
-                float f = DynamicBrakeForceCurves.Get(.01f * DynamicBrakePercent, AbsSpeedMpS);
-                if (f > 0 && PowerOn)
+                if (this is MSTSElectricLocomotive)
                 {
-                    DynamicBrakeForceN = f * (1 - PowerReduction);
+                    if ((this as MSTSElectricLocomotive).UseDCMotorForce == true)
+                    {
+                        (this as MSTSElectricLocomotive).UpdateDCMotorDynamicBrake(elapsedClockSeconds);
+                        DynamicBrakeForceN = (this as MSTSElectricLocomotive).NewDynamicBrakeForceN; ;
+                    }
                 }
                 else
                 {
-                    DynamicBrakeForceN = 0f;
+
+                    float f = DynamicBrakeForceCurves.Get(.01f * DynamicBrakePercent, AbsSpeedMpS);
+                    if (f > 0 && PowerOn)
+                    {
+                        DynamicBrakeForceN = f * (1 - PowerReduction);
+                    }
+                    else
+                    {
+                        DynamicBrakeForceN = 0f;
+                    }
                 }
+
             }
             else
                 DynamicBrakeForceN = 0; // Set dynamic brake force to zero if in Notch 0 position
@@ -3225,6 +3240,24 @@ namespace Orts.Simulation.RollingStocks
             AlerterReset(TCSEvent.ThrottleChanged);
             CommandStartTime = Simulator.ClockTime;
         }
+
+        public void ThrottleToMax()
+        {
+            // A developper!
+
+//           StartThrottleToMax(1.0f);
+        }
+        public void StartThrottleToMax(float? target)
+        {
+            if (ThrottleController.CurrentValue >= ThrottleController.MaximumValue)
+                return;
+            Trace.TraceInformation("PR+");
+            ThrottleController.StartIncrease();
+            if (ThrottleController.NotchCount() >= 1) SignalEvent(Event.ThrottleChange);
+            AlerterReset(TCSEvent.ThrottleChanged);
+            CommandStartTime = Simulator.ClockTime;
+        }
+
 
         #endregion
 

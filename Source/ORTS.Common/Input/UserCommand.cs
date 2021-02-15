@@ -117,6 +117,7 @@
         [GetString("Control Throttle Increase")] ControlThrottleIncrease,
         [GetString("Control Throttle Decrease")] ControlThrottleDecrease,
         [GetString("Control Throttle Zero")] ControlThrottleZero,
+        [GetString("Control Throttle To Max")] ControlThrottleMax,
 
         //** Added for test: 2nd Throttle Control
         [GetString("Control Second Throttle Increase")] ControlSecondThrottleIncrease,

@@ -139,6 +139,7 @@ namespace Orts.Viewer3D.RollingStock
             UserInputCommands.Add(UserCommand.ControlThrottleIncrease, new Action[] { () => Locomotive.StopThrottleIncrease(), () => Locomotive.StartThrottleIncrease() });
             UserInputCommands.Add(UserCommand.ControlThrottleDecrease, new Action[] { () => Locomotive.StopThrottleDecrease(), () => Locomotive.StartThrottleDecrease() });
             UserInputCommands.Add(UserCommand.ControlThrottleZero, new Action[] { Noop, () => Locomotive.ThrottleToZero() });
+            UserInputCommands.Add(UserCommand.ControlThrottleMax, new Action[] { Noop, () => Locomotive.ThrottleToMax() });
 
             UserInputCommands.Add(UserCommand.ControlSecondThrottleIncrease, new Action[] { () => Locomotive.StopSecondThrottleIncrease(), () => Locomotive.StartSecondThrottleIncrease() });
             UserInputCommands.Add(UserCommand.ControlSecondThrottleDecrease, new Action[] { () => Locomotive.StopSecondThrottleDecrease(), () => Locomotive.StartSecondThrottleDecrease() });
@@ -277,7 +278,12 @@ namespace Orts.Viewer3D.RollingStock
             if (Viewer.Camera.AttachedCar == this.MSTSWagon && Viewer.Camera.Style == Camera.Styles.ThreeDimCab)
             {
                 if (ThreeDimentionCabViewer != null)
+                {
+                    //                    Viewer.Camera.Location.Y+= (Locomotive.VibrationTranslationM.Y);
                     ThreeDimentionCabViewer.PrepareFrame(frame, elapsedTime);
+ 
+//                    Trace.TraceInformation("Pos : " + Viewer.Camera.Location.Y);
+                }
             }
 
             // Wipers and bell animation
@@ -1332,6 +1338,8 @@ namespace Orts.Viewer3D.RollingStock
             drawPos.X += _Viewer.CabXLetterboxPixels;
             drawPos.Y += _Viewer.CabYLetterboxPixels;
 
+            drawPos.Y += _Locomotive.VibrationTranslationM.Y * 100;
+
             _SpriteShader2DCabView.SpriteBatch.Draw(_CabTexture, drawPos, cabRect, Color.White, 0f, drawOrigin, cabScale, SpriteEffects.None, 0f);
 
             // Draw letterboxing.
@@ -1479,6 +1487,9 @@ namespace Orts.Viewer3D.RollingStock
             // Cab view position adjusted to allow for letterboxing.
             Position.X = (float)Viewer.CabWidthPixels / 640 * ((float)Control.PositionX + Origin.X * Scale) - Viewer.CabXOffsetPixels + Viewer.CabXLetterboxPixels;
             Position.Y = (float)Viewer.CabHeightPixels / 480 * ((float)Control.PositionY + Origin.Y * Scale) + Viewer.CabYOffsetPixels + Viewer.CabYLetterboxPixels;
+
+            Position.Y += Locomotive.VibrationTranslationM.Y * 100;
+            
             ScaleToScreen = (float)Viewer.CabWidthPixels / 640 * Scale;
 
             var rangeFraction = GetRangeFraction();
@@ -1655,6 +1666,7 @@ namespace Orts.Viewer3D.RollingStock
                 if (Gauge is CVCFirebox)
                     destH = Math.Min(destH, (int)(yratio * (Control.PositionY + 0.5 * Gauge.Area.Height)) - destY);
             }
+
             if (Control.MinValue < 0 && Control.ControlType != CABViewControlTypes.REVERSER_PLATE && Gauge.ControlStyle != CABViewControlStyles.POINTER)
             {
                 if (Num < 0 && Gauge.NegativeColor.A != 0)
@@ -1674,6 +1686,8 @@ namespace Orts.Viewer3D.RollingStock
             // Cab view vertical position adjusted to allow for clip or stretch.
             destX -= Viewer.CabXOffsetPixels;
             destY += Viewer.CabYOffsetPixels;
+
+            destY += (int)(Locomotive.VibrationTranslationM.Y * 100);
 
             // Cab view position adjusted to allow for letterboxing.
             destX += Viewer.CabXLetterboxPixels;
@@ -1771,6 +1785,9 @@ namespace Orts.Viewer3D.RollingStock
             // Cab view position adjusted to allow for letterboxing.
             DestinationRectangle.X = (int)(xratio * Control.PositionX * 1.0001) - Viewer.CabXOffsetPixels + Viewer.CabXLetterboxPixels;
             DestinationRectangle.Y = (int)(yratio * Control.PositionY * 1.0001) + Viewer.CabYOffsetPixels + Viewer.CabYLetterboxPixels;
+
+            DestinationRectangle.Y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+
             DestinationRectangle.Width = (int)(xratio * Math.Min(Control.Width, Texture.Width));  // Allow only downscaling of the texture, and not upscaling
             DestinationRectangle.Height = (int)(yratio * Math.Min(Control.Height, Texture.Height));  // Allow only downscaling of the texture, and not upscaling
         }
@@ -2444,6 +2461,9 @@ namespace Orts.Viewer3D.RollingStock
             // Cab view position adjusted to allow for letterboxing.
             DrawPosition.X = (int)(Position.X * Viewer.CabWidthPixels / 640) + (Viewer.CabExceedsDisplayHorizontally > 0 ? DrawFont.Height / 4 : 0) - Viewer.CabXOffsetPixels + Viewer.CabXLetterboxPixels;
             DrawPosition.Y = (int)((Position.Y + Control.Height / 2) * Viewer.CabHeightPixels / 480) - DrawFont.Height / 2 + Viewer.CabYOffsetPixels + Viewer.CabYLetterboxPixels;
+
+            DrawPosition.Y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+
             DrawPosition.Width = (int)(Control.Width * Viewer.DisplaySize.X / 640);
             DrawPosition.Height = (int)(Control.Height * Viewer.DisplaySize.Y / 480);
             DrawRotation = digital.Rotation;
@@ -3399,6 +3419,9 @@ namespace Orts.Viewer3D.RollingStock
         {
             Material = material;
             Position = position;
+
+//            Position.Y+= locomotive.VibrationTranslationM.Y * 100;
+
             Color = color;
             Font = font;
         }
