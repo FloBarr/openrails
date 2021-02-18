@@ -381,7 +381,13 @@ namespace Orts.Simulation.RollingStocks
         public bool SecondControllerActive = false;
         //** Next Notch or Throttle Increase forbidden? 
         public bool DCMotorThrottleIncreaseForbidden = false;
-
+        //** Notchin Up? used for delaying notch up
+        public bool NotchingUp = false;
+        public bool NotchingDown = false;
+        public float TimeBetweenNotchingUp = 0.0f;
+        public float ElapsedTimeBetweenNotchingUp = 0f;
+        public float TimeBetweenNotchingDown = 0.0f;
+        public float ElapsedTimeBetweenNotchingDown = 0f;
 
         public ScriptedBrakeController TrainBrakeController;
         public ScriptedBrakeController EngineBrakeController;
@@ -905,6 +911,8 @@ namespace Orts.Simulation.RollingStocks
                 case "engine(ortsmaxtracksanderboxcapacity": MaxTrackSandBoxCapacityM3 = stf.ReadFloatBlock(STFReader.UNITS.Volume, null); break;
                 case "engine(ortsmaxtracksandersandconsumption": TrackSanderSandConsumptionM3pS = stf.ReadFloatBlock(STFReader.UNITS.Volume, null); break;
                 case "engine(ortsmaxtracksanderairconsumption": TrackSanderAirComsumptionM3pS = stf.ReadFloatBlock(STFReader.UNITS.Volume, null); break;
+                case "engine(ortstimebetweennotchingup": TimeBetweenNotchingUp = stf.ReadFloatBlock(STFReader.UNITS.Volume, null); break;
+                case "engine(ortstimebetweennotchingdown": TimeBetweenNotchingDown = stf.ReadFloatBlock(STFReader.UNITS.Volume, null); break;
                 default: base.Parse(lowercasetoken, stf); break;
                     
             }
@@ -1479,6 +1487,35 @@ namespace Orts.Simulation.RollingStocks
             }
         }
 
+        public void TestNotchingPossibilities(float elapsedClockSeconds)
+        {
+            //** Notch up and down timers
+            if ((NotchingUp == true) && (TimeBetweenNotchingUp > ElapsedTimeBetweenNotchingUp))
+            {
+                ElapsedTimeBetweenNotchingUp += elapsedClockSeconds;
+ //               Trace.TraceInformation("Notching Up : next notch in " + (TimeBetweenNotchingUp - ElapsedTimeBetweenNotchingUp));
+
+                if (ElapsedTimeBetweenNotchingUp > TimeBetweenNotchingUp)
+                {
+                    NotchingUp = false;
+                    ElapsedTimeBetweenNotchingUp = 0;
+                }
+            }
+
+            //** Notch up and down timers
+            if ((NotchingDown == true) && (TimeBetweenNotchingDown > ElapsedTimeBetweenNotchingDown))
+            {
+                ElapsedTimeBetweenNotchingDown += elapsedClockSeconds;
+//                Trace.TraceInformation("Notching Down : next notch in " + (TimeBetweenNotchingDown - ElapsedTimeBetweenNotchingDown));
+
+                if (ElapsedTimeBetweenNotchingDown > TimeBetweenNotchingDown)
+                {
+                    NotchingDown = false;
+                    ElapsedTimeBetweenNotchingDown = 0;
+                }
+            }
+        }
+
         /// <summary>
         /// This function updates periodically the states and physical variables of the locomotive's subsystems.
         /// </summary>
@@ -1529,6 +1566,8 @@ namespace Orts.Simulation.RollingStocks
 
             if (!AdvancedAdhesionModel)  // Advanced adhesion model turned off.
                AbsWheelSpeedMpS = AbsSpeedMpS;
+
+            TestNotchingPossibilities(elapsedClockSeconds);
 
             if (this is MSTSElectricLocomotive)
             {
@@ -2836,7 +2875,6 @@ namespace Orts.Simulation.RollingStocks
         }
         public void StartSecondThrottleIncrease(float? target)
         {
-            //            Trace.TraceInformation("Second Throttle : Min-" + SecondThrottleController.MinimumValue+" / Actuelle-"+SecondThrottleController.CurrentValue + " / cible-" + target+ " / Max-"+ SecondThrottleController.MaximumValue+" / Noeuds "+SecondThrottleController.NotchCount());
             if (SecondControllerActive == false) return;
             if (SecondThrottleController.CurrentValue >= SecondThrottleController.MaximumValue)
                 return;
@@ -2853,7 +2891,8 @@ namespace Orts.Simulation.RollingStocks
         public void StartThrottleIncrease()
         {
             if (DCMotorThrottleIncreaseForbidden == true) return;
-
+            if (NotchingUp == true) return;
+            NotchingUp = true;
             if (DynamicBrakePercent >= 0 || !(DynamicBrakePercent == -1 && !DynamicBrake || DynamicBrakePercent >= 0 && DynamicBrake))
             {
                 if (!(CombinedControlType == CombinedControl.ThrottleDynamic
@@ -2875,6 +2914,8 @@ namespace Orts.Simulation.RollingStocks
         public void StartSecondThrottleIncrease()
         {
             if (DCMotorThrottleIncreaseForbidden == true) return;
+            if (NotchingUp == true) return;
+            NotchingUp = true;
             if (SecondControllerActive == false) return;
             if (DynamicBrakePercent >= 0 || !(DynamicBrakePercent == -1 && !DynamicBrake || DynamicBrakePercent >= 0 && DynamicBrake))
             {
@@ -2911,7 +2952,7 @@ namespace Orts.Simulation.RollingStocks
         public void StopSecondThrottleIncrease()
         {
             if (SecondControllerActive == false) return;
-            Trace.TraceInformation("Stop 2nd Throttle Increase");
+//            Trace.TraceInformation("Stop 2nd Throttle Increase");
             AlerterReset(TCSEvent.ThrottleChanged);
             SecondThrottleController.StopIncrease();
 
@@ -2953,6 +2994,8 @@ namespace Orts.Simulation.RollingStocks
 
         public void StartThrottleDecrease()
         {
+            if (NotchingDown == true) return;
+            NotchingDown = true;
             if (CombinedControlType == CombinedControl.ThrottleDynamic && ThrottleController.CurrentValue <= 0)
                 StartDynamicBrakeIncrease(null);
             else if (CombinedControlType == CombinedControl.ThrottleAir && ThrottleController.CurrentValue <= 0)
@@ -2962,6 +3005,8 @@ namespace Orts.Simulation.RollingStocks
         }
         public void StartSecondThrottleDecrease()
         {
+            if (NotchingDown == true) return;
+            NotchingDown = true;
             if (SecondControllerActive == false) return;
             if (CombinedSecondControlType == CombinedControl.ThrottleDynamic && SecondThrottleController.CurrentValue <= 0)
                 StartDynamicBrakeIncrease(null);

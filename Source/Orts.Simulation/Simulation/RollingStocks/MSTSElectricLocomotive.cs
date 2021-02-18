@@ -57,6 +57,8 @@ namespace Orts.Simulation.RollingStocks
     public class MSTSElectricLocomotive : MSTSLocomotive
     {
         //** New UpdateMotiveForce parameters   **//
+
+
         /// <summary>
         /// Max Full Voltage (limiting line voltage)
         /// </summary> 
@@ -686,6 +688,7 @@ namespace Orts.Simulation.RollingStocks
             float prevMaxVoltageValue=0;
             float GlobalR = 0;
 
+            //** Beginning the update!
             if (FullVoltage > MotorFullVoltage) FullVoltage = MotorFullVoltage;
 
             if (this.IsLeadLocomotive())
