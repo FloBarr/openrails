@@ -804,6 +804,32 @@ namespace Orts.Simulation.RollingStocks
         /// </summary>
         public override void Update(float elapsedClockSeconds)
         {
+            //** Notch up and down timers
+            if ((NotchingUp == true) && (TimeBetweenNotchingUp > ElapsedTimeBetweenNotchingUp))
+            {
+                ElapsedTimeBetweenNotchingUp += elapsedClockSeconds;
+                Trace.TraceInformation("Notching Up : next notch in " + (TimeBetweenNotchingUp - ElapsedTimeBetweenNotchingUp));
+
+                if (ElapsedTimeBetweenNotchingUp > TimeBetweenNotchingUp)
+                {
+                    NotchingUp = false;
+                    ElapsedTimeBetweenNotchingUp = 0;
+                }
+            }
+
+            //** Notch up and down timers
+            if ((NotchingDown == true) && (TimeBetweenNotchingDown > ElapsedTimeBetweenNotchingDown))
+            {
+                ElapsedTimeBetweenNotchingDown += elapsedClockSeconds;
+                Trace.TraceInformation("Notching Down : next notch in " + (TimeBetweenNotchingDown - ElapsedTimeBetweenNotchingDown));
+
+                if (ElapsedTimeBetweenNotchingDown > TimeBetweenNotchingDown)
+                {
+                    NotchingDown = false;
+                    ElapsedTimeBetweenNotchingDown = 0;
+                }
+            }
+
             if (TractionMotorType == TractionMotorTypes.DC)
             {
                 UpdateDCMotorCurrent(elapsedClockSeconds);
