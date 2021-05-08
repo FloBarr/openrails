@@ -541,8 +541,15 @@ namespace Orts.Simulation.Signalling
                     else  if (worldObject.GetType() == typeof(PlatformObj))
                     {
                         var thisWorldObj = worldObject as PlatformObj;
-                        if (!PlatformSidesList.ContainsKey(thisWorldObj.trItemIDList[0].dbID)) PlatformSidesList.Add(thisWorldObj.trItemIDList[0].dbID, thisWorldObj.PlatformData);
-                        if (!PlatformSidesList.ContainsKey(thisWorldObj.trItemIDList[0].dbID)) PlatformSidesList.Add(thisWorldObj.trItemIDList[1].dbID, thisWorldObj.PlatformData);
+                        try
+                        {
+                            if (!PlatformSidesList.ContainsKey(thisWorldObj.trItemIDList[0].dbID)) PlatformSidesList.Add(thisWorldObj.trItemIDList[0].dbID, thisWorldObj.PlatformData);
+                            if (!PlatformSidesList.ContainsKey(thisWorldObj.trItemIDList[0].dbID)) PlatformSidesList.Add(thisWorldObj.trItemIDList[1].dbID, thisWorldObj.PlatformData);
+                        }
+                        catch
+                        {
+                            Trace.TraceError("Error adding object " + worldObject.UID + " in .w " + worldObject.Position);
+                        }
                     }
                 }
             }

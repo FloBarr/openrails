@@ -5858,7 +5858,6 @@ namespace Orts.Simulation.Physics
 
         public void SetFormedOccupied()
         {
-
             int rearIndex = PresentPosition[1].RouteListIndex;
             int frontIndex = PresentPosition[0].RouteListIndex;
 

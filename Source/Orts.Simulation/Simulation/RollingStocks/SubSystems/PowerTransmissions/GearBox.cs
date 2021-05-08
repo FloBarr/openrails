@@ -582,9 +582,9 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
                         {
                             if (AdvancedGearBox==true)
                             {
-                                if ((CurrentSpeedMpS > (CurrentGear.MaxSpeedMpS*(0.5+(0.5* (DieselEngine.locomotive.ThrottlePercent/100))))))
+                                if ((CurrentSpeedMpS > (CurrentGear.MaxSpeedMpS*(0.75+(0.25* (DieselEngine.locomotive.ThrottlePercent/100))))))
                                     AutoGearUp();
-                                else if ((CurrentSpeedMpS < (CurrentGear.MinSpeedMpS * (0.5 + (0.5 * (DieselEngine.locomotive.ThrottlePercent/100))))))
+                                else if ((CurrentSpeedMpS < (CurrentGear.MinSpeedMpS * (0.75 + (0.25 * (DieselEngine.locomotive.ThrottlePercent/100))))))
                                 {
                                     AutoGearDown();
                                 }

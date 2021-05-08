@@ -370,7 +370,7 @@ namespace Orts.Simulation.RollingStocks
         protected bool DynamicBrakeBlended; // dynamic brake blending is currently active
         protected bool DynamicBrakeBlendingEnabled; // dynamic brake blending is configured
         protected bool DynamicBrakeAvailable; // dynamic brake is available
-        AirSinglePipe airPipeSystem;
+        protected AirSinglePipe airPipeSystem;
         protected double DynamicBrakeCommandStartTime;
         protected bool DynamicBrakeBlendingOverride; // true when DB lever >0% should always override the blending. When false, the bigger command is applied.
         protected bool DynamicBrakeBlendingForceMatch = true; // if true, dynamic brake blending tries to achieve the same braking force as the airbrake would have.
@@ -429,6 +429,13 @@ namespace Orts.Simulation.RollingStocks
         public float ElapsedTimeBetweenNotchingUp = 0f;
         public float TimeBetweenNotchingDown = 0.0f;
         public float ElapsedTimeBetweenNotchingDown = 0f;
+
+
+        public bool NotchingToZero=false;
+        public bool NotchingToMax=false;
+        public bool BlendedDynamicBrakeActive = false;
+        public float DCMotorPrevNotchValue = 0f;
+        public float DCMotorNextNotchValue = 1f;
 
         public ScriptedBrakeController TrainBrakeController;
         public ScriptedBrakeController EngineBrakeController;
@@ -1102,7 +1109,7 @@ namespace Orts.Simulation.RollingStocks
             WaterScoopDepthM = locoCopy.WaterScoopDepthM;
             WaterScoopWidthM = locoCopy.WaterScoopWidthM;
             MoveParamsToAxle();
-
+            AcceptMUSignals = locoCopy.AcceptMUSignals;
 
         }
 
@@ -1619,7 +1626,10 @@ namespace Orts.Simulation.RollingStocks
                         DynamicBrakeIntervention -= elapsedClockSeconds * (airPipeSystem.GetMaxReleaseRatePSIpS() / maxCylPressurePSI);
                 }
                 if (DynamicBrakeController != null)
+                {
                     DynamicBrakeIntervention = Math.Max(DynamicBrakeIntervention, DynamicBrakeController.CurrentValue);
+                }
+                    
             }
             else if (DynamicBrakeBlended)
             {
@@ -1643,6 +1653,25 @@ namespace Orts.Simulation.RollingStocks
                 }
             }
 
+            if ((NotchingToMax == true) && (NotchingUp == false)&&(DCMotorThrottleIncreaseForbidden==false))
+            {
+                // When we have notches and the current Notch does not require smooth, we go directly to the next notch
+                if ((ThrottleController.CurrentNotch < ThrottleController.Notches.Count - 1) && (!ThrottleController.Notches[ThrottleController.CurrentNotch].Smooth))
+                {
+                    ++ThrottleController.CurrentNotch;
+                    ThrottleController.IntermediateValue = ThrottleController.CurrentValue = ThrottleController.Notches[ThrottleController.CurrentNotch].Value;
+
+                    Simulator.Confirmer.ConfirmWithPerCent(CabControl.Throttle, ThrottleController.CurrentValue * 100);
+
+                    if (TimeBetweenNotchingUp > 0) NotchingUp = true;
+                    if(ThrottleController.CurrentNotch<ThrottleController.NotchCount())
+                    {
+                        if (DCMotorNextNotchValue == ThrottleController.Notches[ThrottleController.CurrentNotch].Value)
+                            NotchingToMax = false;
+                    }
+                }
+            }
+
             //** Notch up and down timers
             if ((NotchingDown == true) && (TimeBetweenNotchingDown > ElapsedTimeBetweenNotchingDown))
             {
@@ -1653,6 +1682,19 @@ namespace Orts.Simulation.RollingStocks
                 {
                     NotchingDown = false;
                     ElapsedTimeBetweenNotchingDown = 0;
+                }
+            }
+            if ((NotchingToZero == true) && (NotchingDown == false))
+            {
+                // When we have notches and the current Notch does not require smooth, we go directly to the next notch
+                if ((ThrottleController.CurrentNotch >0) && (!ThrottleController.Notches[ThrottleController.CurrentNotch].Smooth))
+                {
+                    --ThrottleController.CurrentNotch;
+                    ThrottleController.IntermediateValue = ThrottleController.CurrentValue = ThrottleController.Notches[ThrottleController.CurrentNotch].Value;
+                    
+                    Simulator.Confirmer.ConfirmWithPerCent(CabControl.Throttle, ThrottleController.CurrentValue * 100);
+
+                    if (TimeBetweenNotchingUp > 0) NotchingDown = true;
                 }
             }
         }
@@ -1666,6 +1708,7 @@ namespace Orts.Simulation.RollingStocks
 
             UpdatePowerSupply(elapsedClockSeconds);
             UpdateControllers(elapsedClockSeconds);
+            TestNotchingPossibilities(elapsedClockSeconds);
 
             // Train Heading - only check the lead locomotive otherwise flipped locomotives further in consist will overwrite the train direction
             if (IsLeadLocomotive())
@@ -1707,8 +1750,6 @@ namespace Orts.Simulation.RollingStocks
 
             if (!AdvancedAdhesionModel)  // Advanced adhesion model turned off.
                AbsWheelSpeedMpS = AbsSpeedMpS;
-
-            TestNotchingPossibilities(elapsedClockSeconds);
 
             if (this is MSTSElectricLocomotive)
             {
@@ -2030,6 +2071,7 @@ namespace Orts.Simulation.RollingStocks
             if (DynamicBrakeController != null && DynamicBrakeController.CommandStartTime > DynamicBrakeCommandStartTime) // use the latest command time
                 DynamicBrakeCommandStartTime = DynamicBrakeController.CommandStartTime;
 
+
             if ((DynamicBrakeController != null || DynamicBrakeBlendingEnabled || DynamicBrakeAvailable) && (DynamicBrakePercent >= 0 || IsLeadLocomotive() && DynamicBrakeIntervention >= 0))
             {
                 if (!DynamicBrake)
@@ -2048,8 +2090,60 @@ namespace Orts.Simulation.RollingStocks
                     if (DynamicBrakeController != null)
                     {
                         DynamicBrakeController.Update(elapsedClockSeconds);
-                        DynamicBrakePercent = (DynamicBrakeIntervention < 0 ? DynamicBrakeController.CurrentValue : DynamicBrakeIntervention) * 100f;
-                        LocalDynamicBrakePercent = (DynamicBrakeIntervention < 0 ? DynamicBrakeController.CurrentValue : DynamicBrakeIntervention) * 100f;
+                        bool BlendedNotchedDynamicBrake = false;
+
+                        if (this is MSTSElectricLocomotive)
+                            if ((this as MSTSElectricLocomotive).UseDCMotorForce)
+                                BlendedNotchedDynamicBrake = true;
+
+                        if(BlendedNotchedDynamicBrake==false)
+                        {
+                            DynamicBrakePercent = (DynamicBrakeIntervention < 0 ? DynamicBrakeController.CurrentValue : DynamicBrakeIntervention) * 100f;
+                            LocalDynamicBrakePercent = (DynamicBrakeIntervention < 0 ? DynamicBrakeController.CurrentValue : DynamicBrakeIntervention) * 100f;
+//                            Simulator.Confirmer.Information("Dynamic Brake from blended brake (dynamic brake not null). Legacy code.");
+                        }
+                        else
+                        {
+                            if ((DynamicBrakeIntervention>0)&&(AbsSpeedMpS>DynamicBrakeSpeed1MpS))
+                            {
+                                if((DCMotorThrottleIncreaseForbidden==false)&&(NotchingUp==false))
+                                {
+                                    BlendedDynamicBrakeActive = true;
+                                    if (TimeBetweenNotchingUp > 0)
+                                    {
+                                        NotchingUp = true;
+                                        DynamicBrakeController.StartIncrease(null);
+                                        DynamicBrakeController.StopIncrease();
+                                    }
+                                }                           
+                            }
+                            else
+                            {
+                                //** Conditions à modifier  **//
+                                if ((airPipeSystem != null && (airPipeSystem.BrakeLine1PressurePSI > (TrainBrakeController.MaxPressurePSI - 7f) )
+                                    && ThrottleController.CurrentValue == 0f && BlendedDynamicBrakeActive==true)||(AbsSpeedMpS < DynamicBrakeSpeed1MpS))
+                                {
+                                    if ((TimeBetweenNotchingDown > 0) && (NotchingDown == false))
+                                    {
+                                        NotchingDown = true;
+                                        DynamicBrakeController.StartDecrease();
+                                        DynamicBrakeController.StopDecrease();
+
+                                        if (DynamicBrakeController.CurrentNotch == 0)
+                                        {
+                                            DynamicBrakePercent = -1;
+                                            LocalDynamicBrakePercent = DynamicBrakePercent;
+                                            DynamicBrakeIntervention = -1;
+                                            PreviousDynamicBrakeIntervention = 1;
+
+                                        }
+                                    }
+                                }
+
+                            }
+                            DynamicBrakePercent = DynamicBrakeController.CurrentValue * 100f;
+                            LocalDynamicBrakePercent = DynamicBrakePercent;
+                        }
                     }
                     else
                     {
@@ -2061,11 +2155,15 @@ namespace Orts.Simulation.RollingStocks
                     {
                         DynamicBrakePercent = -1;
                         LocalDynamicBrakePercent = -1;
+                        BlendedDynamicBrakeActive = false;
+
                     }
                     PreviousDynamicBrakeIntervention = DynamicBrakeIntervention;
                 }
                 else if (DynamicBrakeController != null)
                     DynamicBrakeController.Update(elapsedClockSeconds);
+//                Trace.TraceInformation("DynamicBrakePercent : " + DynamicBrakePercent + " / DynamicBrakeIntervention : "+DynamicBrakeIntervention + " / DynamicBrake: " + DynamicBrake);
+
             }
             else if ((DynamicBrakeController != null || DynamicBrakeBlendingEnabled || DynamicBrakeAvailable) && DynamicBrakePercent < 0 && (DynamicBrakeIntervention < 0 || !IsLeadLocomotive()) && DynamicBrake)
             {
@@ -2075,7 +2173,10 @@ namespace Orts.Simulation.RollingStocks
                 DynamicBrake = false; // Disengage
                 DynamicBrakeForceN = 0f; // Reset dynamic brake force
                 if (IsLeadLocomotive())
+                {
                     Simulator.Confirmer.Confirm(CabControl.DynamicBrake, CabSetting.Off);
+                }
+                    
                 //           }
                 //            else if (IsLeadLocomotive())
                 //               Simulator.Confirmer.Confirm(CabControl.DynamicBrake, CabSetting.On); // Keeping status string on screen so user knows what's happening
@@ -3097,9 +3198,12 @@ namespace Orts.Simulation.RollingStocks
 
         public void StartThrottleIncrease()
         {
+            NotchingToMax = false;
+            NotchingToZero = false;
             if (DCMotorThrottleIncreaseForbidden == true) return;
             if (NotchingUp == true) return;
-            NotchingUp = true;
+
+            if(TimeBetweenNotchingUp>0) NotchingUp = true;
             if (DynamicBrakePercent >= 0 || !(DynamicBrakePercent == -1 && !DynamicBrake || DynamicBrakePercent >= 0 && DynamicBrake))
             {
                 if (!(CombinedControlType == CombinedControl.ThrottleDynamic
@@ -3120,9 +3224,13 @@ namespace Orts.Simulation.RollingStocks
 
         public void StartSecondThrottleIncrease()
         {
+            NotchingToMax = false;
+            NotchingToZero = false;
             if (DCMotorThrottleIncreaseForbidden == true) return;
             if (NotchingUp == true) return;
-            NotchingUp = true;
+            if (TimeBetweenNotchingUp > 0) NotchingUp = true; 
+
+
             if (SecondControllerActive == false) return;
             if (DynamicBrakePercent >= 0 || !(DynamicBrakePercent == -1 && !DynamicBrake || DynamicBrakePercent >= 0 && DynamicBrake))
             {
@@ -3202,7 +3310,10 @@ namespace Orts.Simulation.RollingStocks
         public void StartThrottleDecrease()
         {
             if (NotchingDown == true) return;
-            NotchingDown = true;
+            if(TimeBetweenNotchingDown>0) NotchingDown = true;
+            NotchingToMax = false;
+            NotchingToZero = false;
+
             if (CombinedControlType == CombinedControl.ThrottleDynamic && ThrottleController.CurrentValue <= 0)
                 StartDynamicBrakeIncrease(null);
             else if (CombinedControlType == CombinedControl.ThrottleAir && ThrottleController.CurrentValue <= 0)
@@ -3213,7 +3324,10 @@ namespace Orts.Simulation.RollingStocks
         public void StartSecondThrottleDecrease()
         {
             if (NotchingDown == true) return;
-            NotchingDown = true;
+            if (TimeBetweenNotchingDown > 0) NotchingDown = true;
+            NotchingToMax = false;
+            NotchingToZero = false;
+
             if (SecondControllerActive == false) return;
             if (CombinedSecondControlType == CombinedControl.ThrottleDynamic && SecondThrottleController.CurrentValue <= 0)
                 StartDynamicBrakeIncrease(null);
@@ -3448,12 +3562,31 @@ namespace Orts.Simulation.RollingStocks
 
         public void ThrottleToZero()
         {
+            NotchingToMax = false;
+            NotchingToZero = true;
             if (CombinedControlType == CombinedControl.ThrottleDynamic && ThrottleController.CurrentValue <= 0)
                 StartDynamicBrakeIncrease(null);
             else if (CombinedControlType == CombinedControl.ThrottleAir && ThrottleController.CurrentValue <= 0)
                 StartTrainBrakeIncrease(null);
             else
-                StartThrottleToZero(0.0f);
+            {
+                //** Let the system handle the notching down only if loco 
+                if(this is MSTSElectricLocomotive)
+                {
+                    if ((this as MSTSElectricLocomotive).DCMotorResistanceBench == false)
+                        StartThrottleToZero(0.0f);
+
+                }
+                else if (this is MSTSDieselLocomotive)
+                {
+                    if ((this as MSTSDieselLocomotive).FieldChangeByNotch== false)
+                        StartThrottleToZero(0.0f);
+
+                }
+
+            }
+
+
 
         }
 
@@ -3494,6 +3627,8 @@ namespace Orts.Simulation.RollingStocks
         public void ThrottleToMax()
         {
             // A developper!
+            NotchingToMax = true;
+            NotchingToZero = false;
 
 //           StartThrottleToMax(1.0f);
         }
@@ -3501,7 +3636,6 @@ namespace Orts.Simulation.RollingStocks
         {
             if (ThrottleController.CurrentValue >= ThrottleController.MaximumValue)
                 return;
-            Trace.TraceInformation("PR+");
             ThrottleController.StartIncrease();
             if (ThrottleController.NotchCount() >= 1) SignalEvent(Event.ThrottleChange);
             AlerterReset(TCSEvent.ThrottleChanged);
@@ -4008,6 +4142,10 @@ namespace Orts.Simulation.RollingStocks
     #region DynamicBrakeController
     public void StartDynamicBrakeIncrease(float? target)
         {
+            if (DCMotorThrottleIncreaseForbidden == true) return;
+            if (NotchingUp == true) return;
+            if (TimeBetweenNotchingUp > 0) NotchingUp = true;
+
             AlerterReset(TCSEvent.DynamicBrakeChanged);
             if (!CanUseDynamicBrake())
                 return;
@@ -4040,6 +4178,9 @@ namespace Orts.Simulation.RollingStocks
 
         public void StartDynamicBrakeDecrease(float? target)
         {
+            if (NotchingDown == true) return;
+            if (TimeBetweenNotchingDown > 0) NotchingDown = true;
+
             AlerterReset(TCSEvent.DynamicBrakeChanged);
             if (!CanUseDynamicBrake())
                 return;

@@ -588,6 +588,10 @@ namespace Orts.Simulation.RollingStocks
                     DCMotorBEMFFactor = 0.005f;
                     Trace.TraceInformation("DC Motor: Back EMF parameter not set, forced to " + DCMotorBEMFFactor);
                 }
+                else
+                {
+                    Trace.TraceInformation("DC Motor: Back EMF parameter set from file to " + DCMotorBEMFFactor);
+                }
             }
 
             // Check force assumptions set for diesel
@@ -808,7 +812,7 @@ namespace Orts.Simulation.RollingStocks
             if ((NotchingUp == true) && (TimeBetweenNotchingUp > ElapsedTimeBetweenNotchingUp))
             {
                 ElapsedTimeBetweenNotchingUp += elapsedClockSeconds;
-                Trace.TraceInformation("Notching Up : next notch in " + (TimeBetweenNotchingUp - ElapsedTimeBetweenNotchingUp));
+//                Trace.TraceInformation("Notching Up : next notch in " + (TimeBetweenNotchingUp - ElapsedTimeBetweenNotchingUp));
 
                 if (ElapsedTimeBetweenNotchingUp > TimeBetweenNotchingUp)
                 {
@@ -821,7 +825,7 @@ namespace Orts.Simulation.RollingStocks
             if ((NotchingDown == true) && (TimeBetweenNotchingDown > ElapsedTimeBetweenNotchingDown))
             {
                 ElapsedTimeBetweenNotchingDown += elapsedClockSeconds;
-                Trace.TraceInformation("Notching Down : next notch in " + (TimeBetweenNotchingDown - ElapsedTimeBetweenNotchingDown));
+//                Trace.TraceInformation("Notching Down : next notch in " + (TimeBetweenNotchingDown - ElapsedTimeBetweenNotchingDown));
 
                 if (ElapsedTimeBetweenNotchingDown > TimeBetweenNotchingDown)
                 {
@@ -1138,8 +1142,8 @@ namespace Orts.Simulation.RollingStocks
                     IInductor = (PrevUInductor - (TotalR) * PrevIInductor) * (1 / (Inductance * TimeResponse)) + PrevIInductor;
                     //** And verified, if exceeding MaxCurrent, limited to this value                                   **//
                     //** In a perfect world, if exceeding value, should open line contactor or damage motors            **//
-                    if (IInductor > (MaxCurrentA * SerialMotorNumber) / (DCMotorNumber))
-                        IInductor = ((MaxCurrentA * SerialMotorNumber) / DCMotorNumber);
+                    if (IInductor > (MaxCurrentA * DCMotorNumber) / (SerialMotorNumber))
+                        IInductor = ((MaxCurrentA * DCMotorNumber) / SerialMotorNumber);
                 }
 
             }
@@ -1149,8 +1153,8 @@ namespace Orts.Simulation.RollingStocks
                 else UInductor = Voltage;
                 IInductor = (PrevUInductor - (TotalR) * PrevIInductor) * (1 / (Inductance * TimeResponse)) + PrevIInductor;
 
-                if (IInductor > (MaxCurrentA * SerialMotorNumber) / (DCMotorNumber))
-                    IInductor = ((MaxCurrentA * SerialMotorNumber) / DCMotorNumber);
+                if (IInductor > (MaxCurrentA * DCMotorNumber) / (SerialMotorNumber))
+                    IInductor = ((MaxCurrentA * DCMotorNumber) / SerialMotorNumber);
 
                 //** Displaying information at speed = 0
                 if (IsLeadLocomotive() == true)
@@ -1211,7 +1215,7 @@ namespace Orts.Simulation.RollingStocks
             WheelForce = InducedForce * GearingReduction;
 
             //** wheelspeed in m/s converted to rpm
-            RotSpeed = k4 * AbsWheelSpeedMpS;
+            RotSpeed = k4 * AbsSpeedMpS;
 
             //** Back EMF, proportional to speed
             BackEMF = InductFlow * RotSpeed * DCMotorBEMFFactor;
@@ -1246,7 +1250,7 @@ namespace Orts.Simulation.RollingStocks
                 TimeFromStart += elapsedClockSeconds;
 
 
-                if (this.IsLeadLocomotive())
+                if ((this.IsLeadLocomotive()) && (this.IsPlayerTrain))
                 {
 
                     //                    if ((TimeFromStart - PrevTimeFromStart) > 0.5)  //** Writing report every 0.5s
@@ -1261,7 +1265,14 @@ namespace Orts.Simulation.RollingStocks
                             ExportString = MpS.ToKpH(AbsSpeedMpS) + ";" + TimeFromStart + ";" + ThrottlePercent + ";" + Voltage + ";" + UInductor + ";" + BackEMF + ";" + TotalR + ";" + IInductor + ";" + InductFlow + ";" + (NewMotiveForceN / 1000) + ";" + (LegacyMotiveForceN / 1000) + ";" + (Voltage * IInductor / 1000) + ";" + ((DieselUsablePower / DCMotorNumber) / 1000) + ";" + OverLoad + "\r\n";
                             //**Export to report file
                             byte[] info = new UTF8Encoding(true).GetBytes(ExportString);
-                            fs.Write(info, 0, info.Length);
+                            try
+                            {
+                                fs.Write(info, 0, info.Length);
+                            }
+                            catch
+                            {
+
+                            }
                             PrevTimeFromStart = TimeFromStart;
                         }
 
