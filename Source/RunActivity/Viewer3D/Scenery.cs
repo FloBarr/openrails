@@ -574,7 +574,11 @@ namespace Orts.Viewer3D
         internal void Mark()
         {
             foreach (var shape in sceneryObjects)
+            {
+
                 shape.Mark();
+            }
+            
             foreach (var dTrack in dTrackList)
                 dTrack.Mark();
             foreach (var forest in forestList)

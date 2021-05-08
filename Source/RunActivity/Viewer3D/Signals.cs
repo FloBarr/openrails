@@ -171,6 +171,7 @@ namespace Orts.Viewer3D
             foreach (var head in Heads)
                 head.Mark();
             base.Mark();
+            
         }
 
         class SignalShapeHead

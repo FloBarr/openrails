@@ -9437,7 +9437,14 @@ namespace Orts.Simulation.Timetables
                     }
 
                     formedTrain.MovementState = AI_MOVEMENT_STATE.AI_STATIC;
-                    formedTrain.SetFormedOccupied();
+                    try
+                    {
+                        formedTrain.SetFormedOccupied();
+                    }
+                    catch
+                    {
+                        Trace.TraceError("Error forming player train from AI train "+formedTrain.Name+" / "+formedTrain.Path.pathName);
+                    }
 
                     if (MovementState == AI_MOVEMENT_STATE.STATION_STOP && formedTrain.StationStops != null && formedTrain.StationStops.Count > 0)
                     {

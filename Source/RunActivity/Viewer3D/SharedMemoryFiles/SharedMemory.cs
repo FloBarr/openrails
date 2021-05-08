@@ -253,6 +253,10 @@ namespace Orts.Viewer3D.SharedMemoryFiles
             string wPatinages = "";
             string wEnrayages = "";
 
+            int wNotch=0;
+            int wSecondNotch = 0;
+            bool wThrottleUpForbidden = false;
+
             //************************************************//                
             string Message = "Test";
 
@@ -346,7 +350,10 @@ namespace Orts.Viewer3D.SharedMemoryFiles
                             wPuissanceLoc = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DieselEngines[0].MaximumDieselPowerW / 1000;    //   .MaxOutputPowerW / 1000;
                             wPuissancesMax += Math.Round(Math.Abs(wPuissanceLoc), 0);
 
-
+                            wNotch = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).ThrottleController.CurrentNotch;
+                            if((viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).SecondControllerActive)
+                                wSecondNotch = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).SecondThrottleController.CurrentNotch;
+                            wThrottleUpForbidden = (viewer.PlayerTrain.Cars[i] as MSTSDieselLocomotive).DCMotorThrottleIncreaseForbidden;
 
                         }
                         //** Et les Electriques                         **//
@@ -384,6 +391,11 @@ namespace Orts.Viewer3D.SharedMemoryFiles
 
                             wPuissanceLoc = ((viewer.PlayerTrain.Cars[i] as MSTSElectricLocomotive).MotiveForceN / wPuissanceMax) * viewer.PlayerTrain.SpeedMpS * 3; //** Coeff *3, pas tout à fait exact, pas compris l'origine...  **//
                             wPuissances += Math.Round(Math.Abs(wPuissanceLoc), 0);
+
+                            wNotch=(viewer.PlayerTrain.Cars[i] as MSTSElectricLocomotive).ThrottleController.CurrentNotch;
+                            if ((viewer.PlayerTrain.Cars[i] as MSTSElectricLocomotive).SecondControllerActive)
+                                wSecondNotch = (viewer.PlayerTrain.Cars[i] as MSTSElectricLocomotive).SecondThrottleController.CurrentNotch;
+                            wThrottleUpForbidden = (viewer.PlayerTrain.Cars[i] as MSTSElectricLocomotive).DCMotorThrottleIncreaseForbidden;
                         }
                         //** Vapeurs à venir                            **//
 
@@ -428,7 +440,7 @@ namespace Orts.Viewer3D.SharedMemoryFiles
             double wOdometrie = Math.Round(viewer.PlayerTrain.DistanceTravelledM, 0);
 
 
-            
+
             //** Mise en forme                                          **//
             Message = "I=" +
                 Math.Round((viewer.PlayerTrain.SpeedMpS * 3.6), 1) + ';' +                 //1
@@ -439,32 +451,36 @@ namespace Orts.Viewer3D.SharedMemoryFiles
                 Math.Round(viewer.PlayerTrain.LeadPipePressurePSI, 1) + ';' +
                 Math.Round(viewer.PlayerTrain.HUDLocomotiveBrakeCylinderPSI, 1) + ';' +
                 Math.Round(viewer.PlayerTrain.MUThrottlePercent, 0) + ';' +
-                viewer.PlayerTrain.MUDirection + ';' +
-                wUrgence + ';' +                                        //10
+                Math.Round(viewer.PlayerTrain.MUSecondThrottlePercent, 0) + ";" +
+                viewer.PlayerTrain.MUDirection + ';' +                  //10
+                wUrgence + ';' +
                 wRPMs + ';' +
                 wBoiteVs + ';' +
                 wEfforts + ';' +
-                wEffortsMax + ';' +
-                wPuissances + ';' +                                      //15
+                wEffortsMax + ';' +                                     //15
+                wPuissances + ';' +
                 wPuissancesMax + ';' +
                 wAmperages + ';' +
                 wVoltages + ';' +
-                wFrein + ';' +
-                Math.Round(wLongueur, 0) + ';' +                        //20
-                Math.Round(wDistanceSignal, 0) + ';' +                  
+                wFrein + ';' +                                          //20
+                Math.Round(wLongueur, 0) + ';' +
+                Math.Round(wDistanceSignal, 0) + ';' +
                 wAspect + ';' +
                 wOdometrie + ';' +
-                wLoco + ';' +
-                wNom + ';' +                                            //25
+                wLoco + ';' +                                           //25
+                wNom + ';' +
                 wTypes + ';' +
                 wPantographes + ';' +
                 wDJsAutorises + ';' +
-                wDJsFermes + ';' +
-                wAlims + ';' +                                          //30
-                viewer.PlayerTrain.Cars.Count + ';' +                       
+                wDJsFermes + ';' +                                      //30
+                wAlims + ';' +
+                viewer.PlayerTrain.Cars.Count + ';' +
                 wFanaux + ';' +
                 wPatinages + ';' +
-                wEnrayages + ';';
+                wEnrayages + ';' +                                       //35
+                wNotch + ';'+
+                wSecondNotch + ';'+
+                wThrottleUpForbidden + ';';
 
             MessageGenere = Message;
             //** En mise à dispo                              **//
