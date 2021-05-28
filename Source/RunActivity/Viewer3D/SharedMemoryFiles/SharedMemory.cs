@@ -256,6 +256,7 @@ namespace Orts.Viewer3D.SharedMemoryFiles
             int wNotch=0;
             int wSecondNotch = 0;
             bool wThrottleUpForbidden = false;
+            int wVoltageLigne = 0;
 
             //************************************************//                
             string Message = "Test";
@@ -396,11 +397,15 @@ namespace Orts.Viewer3D.SharedMemoryFiles
                             if ((viewer.PlayerTrain.Cars[i] as MSTSElectricLocomotive).SecondControllerActive)
                                 wSecondNotch = (viewer.PlayerTrain.Cars[i] as MSTSElectricLocomotive).SecondThrottleController.CurrentNotch;
                             wThrottleUpForbidden = (viewer.PlayerTrain.Cars[i] as MSTSElectricLocomotive).DCMotorThrottleIncreaseForbidden;
+
+                            wVoltageLigne = (int)(viewer.PlayerTrain.Cars[i] as MSTSElectricLocomotive).PowerSupply.PantographVoltageV;                         
                         }
                         //** Vapeurs à venir                            **//
 
                         //** Nom de la loc                              **//
                         wLoco += (viewer.PlayerTrain.Cars[i] as MSTSLocomotive).LocomotiveName;
+
+                        
                     }
                 }
             }
@@ -434,7 +439,7 @@ namespace Orts.Viewer3D.SharedMemoryFiles
             {
                 wAspect = "Unknown";
             }
-            
+
 
 
             double wOdometrie = Math.Round(viewer.PlayerTrain.DistanceTravelledM, 0);
@@ -480,7 +485,8 @@ namespace Orts.Viewer3D.SharedMemoryFiles
                 wEnrayages + ';' +                                       //35
                 wNotch + ';'+
                 wSecondNotch + ';'+
-                wThrottleUpForbidden + ';';
+                wThrottleUpForbidden + ';'+
+                wVoltageLigne;
 
             MessageGenere = Message;
             //** En mise à dispo                              **//
