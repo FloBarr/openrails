@@ -423,9 +423,12 @@ namespace Orts.Viewer3D.SharedMemoryFiles
             try
             {
                 wDistanceSignal = viewer.PlayerTrain.DistanceToSignal.Value;
+//                viewer.PlayerTrain.NextSignalObject[0].this_sig_speed(MstsSignalFunction.DISTANCE);
+
             }
             catch
             {
+                wDistanceSignal = -1;
             }
             int wDirection = 0;
 
