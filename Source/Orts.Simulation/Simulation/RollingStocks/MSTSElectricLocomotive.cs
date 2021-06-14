@@ -671,7 +671,7 @@ namespace Orts.Simulation.RollingStocks
         /// </summary>
         public void UpdateDCMotorCurrent(float elapsedClockSeconds)
         {
-            float FullVoltage = PowerSupply.LineVoltageV;            //** Max voltage given by Line Voltage
+            float FullVoltage = PowerSupply.FilterVoltageV;            //** Max voltage given by Line Voltage
             float R = DCMotorInternalR;                 //** Induced R, fixed, arbitrarily set
             float ShuntedR = DCMotorInductorR;          //** Inductor R, could be modified with field reduction
             float TotalR = R + ShuntedR;                //** Total Resistance (induced+inductor R serialy mounted )
