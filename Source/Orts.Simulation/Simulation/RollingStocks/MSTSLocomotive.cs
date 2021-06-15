@@ -1756,16 +1756,16 @@ namespace Orts.Simulation.RollingStocks
                 if ((this as MSTSElectricLocomotive).UseDCMotorForce == true)
                 {
                     (this as MSTSElectricLocomotive).UpdateDCMotorCurrent(elapsedClockSeconds);
-                    MotiveForceN = (this as MSTSElectricLocomotive).NewMotiveForceN;
+                    TractiveForceN = (this as MSTSElectricLocomotive).NewMotiveForceN;
                     float w = (ContinuousForceTimeFactor - elapsedClockSeconds) / ContinuousForceTimeFactor;
                     if (w < 0)
                         w = 0;
-                    AverageForceN = w * AverageForceN + (1 - w) * MotiveForceN;
+                    AverageForceN = w * AverageForceN + (1 - w) * TractiveForceN;
 //                    Trace.TraceInformation(IsLeadLocomotive()+" -> Force: "+MotiveForceN);
                 }
                 else
                 {
-                    UpdateMotiveForce(elapsedClockSeconds, t, AbsSpeedMpS, AbsWheelSpeedMpS);
+                    UpdateTractiveForce(elapsedClockSeconds, t, AbsSpeedMpS, AbsWheelSpeedMpS);
                 }
             }
             else
@@ -3200,7 +3200,7 @@ namespace Orts.Simulation.RollingStocks
         {
             NotchingToMax = false;
             NotchingToZero = false;
-            if (DCMotorThrottleIncreaseForbidden == true) return;
+            if ((DCMotorThrottleIncreaseForbidden == true)&&(DynamicBrake==false)) return;
             if (NotchingUp == true) return;
 
             if(TimeBetweenNotchingUp>0) NotchingUp = true;

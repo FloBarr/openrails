@@ -600,8 +600,7 @@ namespace Orts.Simulation.RollingStocks
             float MaxMotorVoltage = FullVoltage;
 
             DCMotorThrottleIncreaseForbidden = false;
-
-            
+                        
 
             if (FullVoltage > MotorFullVoltage) FullVoltage = MotorFullVoltage;
 
@@ -620,15 +619,20 @@ namespace Orts.Simulation.RollingStocks
             EMF = ((1/DCMotorBEMFFactor)/SerialMotorNumber)* (AbsSpeedMpS*3.6f);
 
 
-            float CurrentPressureRation = 0.5f+(((TrainBrakeController.MaxPressurePSI-airPipeSystem.BrakeLine1PressurePSI) / (TrainBrakeController.FullServReductionPSI))/2);
+            float CurrentPressureRatio=1; 
+            if(Math.Abs(TrainBrakeController.MaxPressurePSI-airPipeSystem.BrakeLine1PressurePSI)>0.1)
+            {
+                CurrentPressureRatio = 0.5f + (((TrainBrakeController.MaxPressurePSI - airPipeSystem.BrakeLine1PressurePSI) / (TrainBrakeController.FullServReductionPSI)) / 2);
+            }
+            
+            
 
 
             DBIInductor = (EMF / TotalR);
-            if((DBIInductor * DCMotorNumber ) >(DynamicBrakeMaxCurrentA * CurrentPressureRation)) DCMotorThrottleIncreaseForbidden = true;
-//            if(((DBIInductor*DCMotorNumber/2)+ ((DBIInductor * DCMotorNumber / 2) * CurrentPressureRation)) >DynamicBrakeMaxCurrentA) DCMotorThrottleIncreaseForbidden = true;
-
-//            if (DBIInductor > (MaxCurrentA* SerialMotorNumber) * 0.90)
-//                DCMotorThrottleIncreaseForbidden = true;
+            if ((DBIInductor * SerialMotorNumber) > (DynamicBrakeMaxCurrentA * CurrentPressureRatio))
+            {
+                DCMotorThrottleIncreaseForbidden = true;
+            }
 
             //DBInductFlow = EMF / (RotSpeed * DCMotorBEMFFactor);
             DBInductFlow = DCMotorAmpToFlowFactor * DBIInductor;
@@ -639,7 +643,7 @@ namespace Orts.Simulation.RollingStocks
             //** transmitted to wheels
             WheelForce = DBInducedForce * GearingReduction;
 
-            NewDynamicBrakeForceN = WheelForce * (DCMotorNumber);
+            NewDynamicBrakeForceN = WheelForce * (SerialMotorNumber);
             DisplayedAmperage = DBIInductor * -1;
 
             if (NewDynamicBrakeForceN > MaxDynamicBrakeForceN)
@@ -655,12 +659,12 @@ namespace Orts.Simulation.RollingStocks
             {
                 if (IsMetric)
                 {
-//                    Simulator.Confirmer.Information("Dynamic Brake : ratio = " + CurrentPressureRation+" - Max Current = "+ (DynamicBrakeMaxCurrentA * CurrentPressureRation/DCMotorNumber));
-//                    Simulator.Confirmer.Information("EMF : "+EMF+"V,  Dynamic Brake % =" + DynamicBrakePercent + "%, EMF="+EMF+"V, I="+DBIInductor+"A, Force="+ (int)(NewDynamicBrakeForceN / 1000) + "kN, R Motor=" + R + " R Induct=" + ShuntedR + " Rh=" + RheostatR + " -> Rtot=" + TotalR + " Nb Motors : " + SerialMotorNumber);
+                    Simulator.Confirmer.Information("Dynamic Brake : ratio = " + CurrentPressureRatio+ " - I =" + (DBIInductor * SerialMotorNumber) + "A - Max Current = " + (DynamicBrakeMaxCurrentA * CurrentPressureRatio) + " - Diff : "+ Math.Abs(TrainBrakeController.MaxPressurePSI - airPipeSystem.BrakeLine1PressurePSI)+" Psi");
+//                    Simulator.Confirmer.Information("EMF : "+EMF+"V,  Dynamic Brake % =" + DynamicBrakePercent + "%, EMF="+EMF+"V, I="+DBIInductor+"A / Max="+ (DynamicBrakeMaxCurrentA * CurrentPressureRation)+"A, Force="+ (int)(NewDynamicBrakeForceN / 1000) + "kN, R Motor=" + R + " R Induct=" + ShuntedR + " Rh=" + RheostatR + " -> Rtot=" + TotalR + " Nb Motors : " + SerialMotorNumber);
                 }
                 else
                 {
-                    Simulator.Confirmer.Information("Dynamic Brake : ratio = " + CurrentPressureRation);
+                    Simulator.Confirmer.Information("Dynamic Brake : ratio = " + CurrentPressureRatio);
 //                    Simulator.Confirmer.Information("EMF : " + EMF + "V,  Dynamic Brake % =" + DynamicBrakePercent + "%, EMF=" + EMF + "V, I=" + DBIInductor + "A, Force=" + (int)(NewDynamicBrakeForceN / 1000) + "kN, R Motor=" + R + " R Induct=" + ShuntedR + " Rh=" + RheostatR + " -> Rtot=" + TotalR + " Nb Motors : " + SerialMotorNumber);
                 }
             }
@@ -833,7 +837,7 @@ namespace Orts.Simulation.RollingStocks
                 {
                     AbsPower = MaxMotorVoltage * DCMotorNumber*IInductor;
                 }
-                if (AbsPower > MaxPowerW * 0.95)
+                if ((AbsPower > MaxPowerW * 0.95)&&(DynamicBrake==false))
                     DCMotorThrottleIncreaseForbidden = true;
             }
               

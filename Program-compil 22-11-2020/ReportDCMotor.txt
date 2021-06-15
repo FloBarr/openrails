@@ -1,1 +1,0 @@
-Speed(mph);Time;Throttle;Voltage;U Inductor;BackEMF;TotalR;Amperage;Flow;New Force(lbf);Legacy Force(lbf);Power/Motor;AvailPower/Motor;OverLoad

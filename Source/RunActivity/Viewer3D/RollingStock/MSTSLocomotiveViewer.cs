@@ -1397,7 +1397,7 @@ namespace Orts.Viewer3D.RollingStock
 
             drawPos.Y += _Locomotive.VibrationTranslationM.Y * 100;
 
-            _SpriteShader2DCabView.SpriteBatch.Draw(_CabTexture, drawPos, cabRect, Color.White, 0f, drawOrigin, cabScale, SpriteEffects.None, 0f);
+            _Sprite2DCabView.SpriteBatch.Draw(_CabTexture, drawPos, cabRect, Color.White, 0f, drawOrigin, cabScale, SpriteEffects.None, 0f);
 
             // Draw letterboxing.
             void drawLetterbox(int x, int y, int w, int h)
@@ -1948,7 +1948,6 @@ namespace Orts.Viewer3D.RollingStock
 
                 case CABViewControlTypes.ENGINE_BRAKE:
                 case CABViewControlTypes.BRAKEMAN_BRAKE:
-                case CABViewControlTypes.TRAIN_BRAKE:
                 case CABViewControlTypes.REGULATOR:
                 case CABViewControlTypes.CUTOFF:
                 case CABViewControlTypes.BLOWER:
