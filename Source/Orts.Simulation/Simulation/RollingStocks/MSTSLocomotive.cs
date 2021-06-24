@@ -1655,20 +1655,27 @@ namespace Orts.Simulation.RollingStocks
 
             if ((NotchingToMax == true) && (NotchingUp == false)&&(DCMotorThrottleIncreaseForbidden==false))
             {
-                // When we have notches and the current Notch does not require smooth, we go directly to the next notch
-                if ((ThrottleController.CurrentNotch < ThrottleController.Notches.Count - 1) && (!ThrottleController.Notches[ThrottleController.CurrentNotch].Smooth))
+                if(DynamicBrake==false)
                 {
-                    ++ThrottleController.CurrentNotch;
-                    ThrottleController.IntermediateValue = ThrottleController.CurrentValue = ThrottleController.Notches[ThrottleController.CurrentNotch].Value;
-
-                    Simulator.Confirmer.ConfirmWithPerCent(CabControl.Throttle, ThrottleController.CurrentValue * 100);
-
-                    if (TimeBetweenNotchingUp > 0) NotchingUp = true;
-                    if(ThrottleController.CurrentNotch<ThrottleController.NotchCount())
+                    // When we have notches and the current Notch does not require smooth, we go directly to the next notch
+                    if ((ThrottleController.CurrentNotch < ThrottleController.Notches.Count - 1) && (!ThrottleController.Notches[ThrottleController.CurrentNotch].Smooth))
                     {
-                        if (DCMotorNextNotchValue == ThrottleController.Notches[ThrottleController.CurrentNotch].Value)
-                            NotchingToMax = false;
+                        ++ThrottleController.CurrentNotch;
+                        ThrottleController.IntermediateValue = ThrottleController.CurrentValue = ThrottleController.Notches[ThrottleController.CurrentNotch].Value;
+
+                        Simulator.Confirmer.ConfirmWithPerCent(CabControl.Throttle, ThrottleController.CurrentValue * 100);
+
+                        if (TimeBetweenNotchingUp > 0) NotchingUp = true;
+                        if (ThrottleController.CurrentNotch < ThrottleController.NotchCount())
+                        {
+                            if (DCMotorNextNotchValue == ThrottleController.Notches[ThrottleController.CurrentNotch].Value)
+                                NotchingToMax = false;
+                        }
                     }
+                }
+                else
+                {
+
                 }
             }
 

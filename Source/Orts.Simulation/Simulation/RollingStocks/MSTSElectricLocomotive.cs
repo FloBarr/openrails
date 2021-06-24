@@ -172,6 +172,7 @@ namespace Orts.Simulation.RollingStocks
         /// </summary> 
         /// 
 
+
         private DataMatrix2D FieldChangeSpeedUpMatrix;
         private DataMatrix2D FieldChangeSpeedDownMatrix;
         private DataMatrix FieldChangeNotchMatrix;
@@ -188,6 +189,15 @@ namespace Orts.Simulation.RollingStocks
         /// Gearing reduction beetwen motors and wheels
         /// </summary> 
         public float GearingReduction = 0;
+
+        public int GearingReductionNumber = 1;
+        public float GearingReductionMaxForce = 0;
+
+        public List<float> GearingReductionForceN = new List<float>();
+        public List<float> GearingReductionVelocity = new List<float>();
+        public List<float> GearingReductionValue = new List<float>();
+
+        public int CurrentGearingReduction = 0;
 
         /// <summary>
         /// Is loco using resistance bench
@@ -382,8 +392,59 @@ namespace Orts.Simulation.RollingStocks
                 case "engine(ortsdcmotorfieldspeeddown": FieldChangeSpeedDownMatrix = new DataMatrix2D(stf, false); break;
                 case "engine(ortsdcmotorfieldnotch": FieldChangeNotchMatrix = new DataMatrix(stf); FieldChangeByNotch = true; break;
                 case "engine(ortsdcmotorusedcforce": UseDCMotorForce = stf.ReadBoolBlock(false); break;
-                case "engine(ortsdcmotorgearingreduction": GearingReduction = stf.ReadFloatBlock(STFReader.UNITS.None, 1.0f); break;
 
+                //                case "engine(ortsdcmotorgearingreduction": GearingReduction = stf.ReadFloatBlock(STFReader.UNITS.None, 1.0f); break;
+                
+                case "engine(ortsdcmotorgearingreductionnumber": GearingReductionNumber = stf.ReadIntBlock(1); break;
+
+                case "engine(ortsdcmotorgearingreductionmaxforce":
+                    temp = stf.ReadItem();
+                    if (temp == ")")
+                    {
+                        stf.StepBackOneItem();
+                    }
+                    if (temp == "(")
+                    {
+                        GearingReductionForceN.Clear();
+                        for (int i = 0; i < GearingReductionNumber; i++)
+                            GearingReductionForceN.Add(stf.ReadFloat(STFReader.UNITS.Force, 10000.0f));
+                        stf.SkipRestOfBlock();
+//                        initLevel++;
+                    }
+                    break;
+                case "engine(ortsdcmotorgearingreductionmaxvelocity":
+                    temp = stf.ReadItem();
+                    if (temp == ")")
+                    {
+                        stf.StepBackOneItem();
+                    }
+                    if (temp == "(")
+                    {
+                        GearingReductionVelocity.Clear();
+                        for (int i = 0; i < GearingReductionNumber; i++)
+                            GearingReductionVelocity.Add(stf.ReadFloat(STFReader.UNITS.Speed, 100.0f));
+                        stf.SkipRestOfBlock();
+                        //                        initLevel++;
+                    }
+                    break;
+                case "engine(ortsdcmotorgearingreduction":
+                    temp = stf.ReadItem();
+                    if (temp == ")")
+                    {
+                        stf.StepBackOneItem();
+                    }
+                    if (temp == "(")
+                    {
+                        GearingReductionValue.Clear();
+                        for (int i = 0; i < GearingReductionNumber; i++)
+                        {
+                            GearingReductionValue.Add(stf.ReadFloat(STFReader.UNITS.Speed, 100.0f));
+//                            Trace.TraceInformation("Adding Gear " + i + " : " + GearingReductionValue[i]);
+                        }
+                        stf.SkipRestOfBlock();
+                        //                        initLevel++;
+                    }
+                    break;
                 default:
                     base.Parse(lowercasetoken, stf);
                     break;
@@ -418,15 +479,33 @@ namespace Orts.Simulation.RollingStocks
                     Trace.TraceInformation("DC Motor: No Motor Number set, set to 1");
                 }
                 //** Setting Gear Reduction if not defined or defined to 0                          **//
-                if (GearingReduction == 0)
+                CurrentGearingReduction = 0;
+                if(GearingReductionValue.Count==0)
                 {
-                    GearingReduction = 1;
-                    Trace.TraceInformation("DC Motor: Gearing Reduction not set, calculated to " + GearingReduction);
+                    GearingReductionValue.Clear();
+                    GearingReductionValue.Add(GearingReduction);
                 }
+                GearingReduction = GearingReductionValue[CurrentGearingReduction];
+
+                if (GearingReductionForceN.Count == 0)
+                {
+                    GearingReductionForceN.Clear();
+                    GearingReductionForceN.Add(MaxForceN);
+                }
+                GearingReductionMaxForce = GearingReductionForceN[CurrentGearingReduction];
+
+                if (GearingReductionVelocity.Count == 0)
+                {
+                    GearingReductionVelocity.Clear();
+                    GearingReductionVelocity.Add(MaxSpeedMpS);
+                }
+                MaxSpeedMpS = GearingReductionVelocity[CurrentGearingReduction];
+
+
                 //** If Amp To Flow is not defined or set to 0, calculating one with known values   **//
                 if (DCMotorAmpToFlowFactor == 0)
                 {
-                    DCMotorAmpToFlowFactor = 2 * (MaxForceN / GearingReduction) / (DCMotorNumber * (MaxCurrentA / DCMotorNumber) * (MaxCurrentA / DCMotorNumber));
+                    DCMotorAmpToFlowFactor = 2 * (GearingReductionMaxForce / GearingReduction) / (DCMotorNumber * (MaxCurrentA / DCMotorNumber) * (MaxCurrentA / DCMotorNumber));
                     Trace.TraceInformation("DC Motor: Amp To Flow parameter not set, calculated to " + DCMotorAmpToFlowFactor + " from known parameters");
                 }
                 if (DCMotorBEMFFactor == 0)
@@ -474,6 +553,14 @@ namespace Orts.Simulation.RollingStocks
             FieldChangeController = locoCopy.FieldChangeController;
 
             GearingReduction = locoCopy.GearingReduction;
+            GearingReductionMaxForce = locoCopy.GearingReductionMaxForce;
+
+            GearingReductionForceN = locoCopy.GearingReductionForceN;
+            GearingReductionValue = locoCopy.GearingReductionValue;
+            GearingReductionVelocity = locoCopy.GearingReductionVelocity;
+            GearingReductionNumber = locoCopy.GearingReductionNumber;
+            CurrentGearingReduction = locoCopy.CurrentGearingReduction;
+
             DCMotorNumber = locoCopy.DCMotorNumber;
             DCMotorResistanceBench = locoCopy.DCMotorResistanceBench;
             DCMotorInternalR = locoCopy.DCMotorInternalR;
@@ -484,6 +571,11 @@ namespace Orts.Simulation.RollingStocks
             DCMotorInductance = locoCopy.DCMotorInductance;
             DCMotorBEMFFactor = locoCopy.DCMotorBEMFFactor;
             DCMotorAmpToFlowFactor = locoCopy.DCMotorAmpToFlowFactor;
+            GearingReductionValue = locoCopy.GearingReductionValue;
+            GearingReductionVelocity = locoCopy.GearingReductionVelocity;
+            GearingReductionNumber = locoCopy.GearingReductionNumber;
+            GearingReductionForceN = locoCopy.GearingReductionForceN;
+
             UseDCMotorForce = locoCopy.UseDCMotorForce;
             SecondControllerActive = locoCopy.SecondControllerActive;
             SecondThrottleController = locoCopy.SecondThrottleController;
@@ -573,6 +665,37 @@ namespace Orts.Simulation.RollingStocks
         //            else base.Update(elapsedClockSeconds);
         //        }
 
+
+        /// <summary>
+        /// Change Current Gearing Reduction (up)
+        /// </summary>
+        public void ChangeGearingReductionUp()
+        {
+            if((CurrentGearingReduction<(GearingReductionNumber-1))&&(AbsSpeedMpS==0))
+            {
+                CurrentGearingReduction++;
+                GearingReduction = GearingReductionValue[CurrentGearingReduction];
+                GearingReductionMaxForce = GearingReductionForceN[CurrentGearingReduction];
+                MaxSpeedMpS = GearingReductionVelocity[CurrentGearingReduction];
+                Simulator.Confirmer.Information("Changing Gearing reduction to "+ GearingReduction+". New Max Speed is set to "+ MaxSpeedMpS + " with a max force of "+ GearingReductionMaxForce+"N");
+            }
+        }
+
+        /// <summary>
+        /// Change Current Gearing Reduction (up)
+        /// </summary>
+        public void ChangeGearingReductionDown()
+        {
+            if ((CurrentGearingReduction >0) && (AbsSpeedMpS == 0))
+            {
+                CurrentGearingReduction--;
+                GearingReduction = GearingReductionValue[CurrentGearingReduction];
+                GearingReductionMaxForce = GearingReductionForceN[CurrentGearingReduction];
+                MaxSpeedMpS = GearingReductionVelocity[CurrentGearingReduction];
+                Simulator.Confirmer.Information("Changing Gearing reduction to " + GearingReduction + ". New Max Speed is set to " + MaxSpeedMpS + " with a max force of " + GearingReductionMaxForce + "N");
+            }
+        }
+
         /// <summary>
         /// Update Dynamic Brake Force for DC Motors locos
         /// </summary>
@@ -614,27 +737,32 @@ namespace Orts.Simulation.RollingStocks
             //** wheelspeed in m/s converted to rpm
             RotSpeed = k4 * AbsSpeedMpS;
 
-            //** Back EMF, proportional to speed
-//            EMF = (FullVoltage / SerialMotorNumber) * (AbsSpeedMpS / MaxSpeedMpS)*1.33f;             //EMF=DBInductFlow * RotSpeed * DCMotorBEMFFactor;    // * ActualFieldChangeFactor;
-            EMF = ((1/DCMotorBEMFFactor)/SerialMotorNumber)* (AbsSpeedMpS*3.6f);
+            //if (PrevDBIInductor == 0) PrevDBIInductor = 10;    //** Amorcage **//
 
+            //DBInductFlow = EMF / (RotSpeed * DCMotorBEMFFactor);
+            
 
-            float CurrentPressureRatio=1; 
+            /// A Corriger, BEMF liée à la vitesse de rotation moteur, donc rapport de réduction!!!!!
+            //            EMF = (((1 / DCMotorBEMFFactor)) * (AbsSpeedMpS))/(DCMotorNumber/SerialMotorNumber);
+
+            //            EMF = (DCMotorBEMFFactor* DBInductFlow) * RotSpeed;
+            //            if (EMF > (MotorFullVoltage / SerialMotorNumber))
+            //                EMF = (MotorFullVoltage / SerialMotorNumber);
+
+            EMF = ((AbsSpeedMpS / MaxSpeedMpS) * MotorFullVoltage)/ (DCMotorNumber / SerialMotorNumber);
+
+            float CurrentPressureRatio =1; 
             if(Math.Abs(TrainBrakeController.MaxPressurePSI-airPipeSystem.BrakeLine1PressurePSI)>0.1)
             {
                 CurrentPressureRatio = 0.5f + (((TrainBrakeController.MaxPressurePSI - airPipeSystem.BrakeLine1PressurePSI) / (TrainBrakeController.FullServReductionPSI)) / 2);
             }
             
-            
-
-
             DBIInductor = (EMF / TotalR);
-            if ((DBIInductor * SerialMotorNumber) > (DynamicBrakeMaxCurrentA * CurrentPressureRatio))
+            if ((DBIInductor * (DCMotorNumber/SerialMotorNumber)) > (DynamicBrakeMaxCurrentA * CurrentPressureRatio))
             {
                 DCMotorThrottleIncreaseForbidden = true;
             }
 
-            //DBInductFlow = EMF / (RotSpeed * DCMotorBEMFFactor);
             DBInductFlow = DCMotorAmpToFlowFactor * DBIInductor;
 
             //** and induced Force
@@ -643,7 +771,7 @@ namespace Orts.Simulation.RollingStocks
             //** transmitted to wheels
             WheelForce = DBInducedForce * GearingReduction;
 
-            NewDynamicBrakeForceN = WheelForce * (SerialMotorNumber);
+            NewDynamicBrakeForceN = WheelForce * ((DCMotorNumber / SerialMotorNumber));
             DisplayedAmperage = DBIInductor * -1;
 
             if (NewDynamicBrakeForceN > MaxDynamicBrakeForceN)
@@ -659,8 +787,9 @@ namespace Orts.Simulation.RollingStocks
             {
                 if (IsMetric)
                 {
-                    Simulator.Confirmer.Information("Dynamic Brake : ratio = " + CurrentPressureRatio+ " - I =" + (DBIInductor * SerialMotorNumber) + "A - Max Current = " + (DynamicBrakeMaxCurrentA * CurrentPressureRatio) + " - Diff : "+ Math.Abs(TrainBrakeController.MaxPressurePSI - airPipeSystem.BrakeLine1PressurePSI)+" Psi");
-//                    Simulator.Confirmer.Information("EMF : "+EMF+"V,  Dynamic Brake % =" + DynamicBrakePercent + "%, EMF="+EMF+"V, I="+DBIInductor+"A / Max="+ (DynamicBrakeMaxCurrentA * CurrentPressureRation)+"A, Force="+ (int)(NewDynamicBrakeForceN / 1000) + "kN, R Motor=" + R + " R Induct=" + ShuntedR + " Rh=" + RheostatR + " -> Rtot=" + TotalR + " Nb Motors : " + SerialMotorNumber);
+//                    Trace.TraceInformation("Rot Speed (mot) : " + (int)(RotSpeed) + "rpm, Dynamic Brake % =" + DynamicBrakePercent + "%, EMF=" + (int)EMF + "V, I=" + (int)DBIInductor + "A / Max=" + (int)(DynamicBrakeMaxCurrentA * CurrentPressureRatio) + "A, Flow : " + DBInductFlow + "Wb, Force=" + (int)(NewDynamicBrakeForceN / 1000) + "kN, Nb Motors : " + DCMotorNumber + " / Serial : " + SerialMotorNumber);
+//                    Simulator.Confirmer.Information("Dynamic Brake : ratio = " + CurrentPressureRatio+ " - I =" + (DBIInductor * SerialMotorNumber) + "A - Max Current = " + (DynamicBrakeMaxCurrentA * CurrentPressureRatio) + " - Diff : "+ Math.Abs(TrainBrakeController.MaxPressurePSI - airPipeSystem.BrakeLine1PressurePSI)+" Psi");
+                    Simulator.Confirmer.Information("Rot Speed (mot) : "+ (int)(RotSpeed)+"rpm, Dynamic Brake % =" + DynamicBrakePercent + "%, EMF="+(int)EMF+"V, I="+(int)DBIInductor+"A / Max="+ (int)(DynamicBrakeMaxCurrentA * CurrentPressureRatio)+"A, Flow : "+DBInductFlow+"Wb, Force=" + (int)(NewDynamicBrakeForceN / 1000) + "kN, R Motor=" + R + " R Induct=" + ShuntedR + " Rh=" + RheostatR + " -> Rtot=" + TotalR + " Nb Motors : " + DCMotorNumber+" / Serial : "+SerialMotorNumber);
                 }
                 else
                 {
@@ -921,11 +1050,11 @@ namespace Orts.Simulation.RollingStocks
                 {
                     if (IsMetric)
                     {
-                        Simulator.Confirmer.Information(prevMaxVoltageValue + " / "+(int)(AbsPower/1000) + "kW, Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , UM=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Bench R="+ GlobalR + "ohms , Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information(prevMaxVoltageValue + " / "+(int)(AbsPower/1000) + "kW, Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed (mot):" + (int)(RotSpeed) + "rpm) , UM=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Bench R="+ GlobalR + "ohms , Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total) - " + (int)(InducedForce / 1000) + "kN (motor), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
                     }
                     else
                     {
-                        Simulator.Confirmer.Information(prevMaxVoltageValue + " / " + (int)(AbsPower / 1000) + "kW, Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed:" + (int)RotSpeed + "rpm) , UM=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Bench R=" + GlobalR + "ohms , Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information(prevMaxVoltageValue + " / " + (int)(AbsPower / 1000) + "kW, Speed : " + (int)MpS.ToMpH(AbsSpeedMpS) + "mph (Rot Speed (mot):" + (int)(RotSpeed) + "rpm) , UM=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Bench R=" + GlobalR + "ohms , Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)N.ToLbf(NewMotiveForceN) / 1000 + " klbf (total), Overload : " + OverLoad + "(" + (int)W.ToHp(OverLoadValue) + "hp), OverAmp = " + OverAmp);
                     }
                 }
 
@@ -973,7 +1102,7 @@ namespace Orts.Simulation.RollingStocks
                 {
                     if (IsMetric)
                     {
-                        Simulator.Confirmer.Information(prevMaxVoltageValue + " / " + (int)(AbsPower / 1000) + "kW, Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , UM=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Bench R=" + GlobalR + "ohms , Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
+                        Simulator.Confirmer.Information("GR : "+GearingReduction+", Voltages : "+ prevMaxVoltageValue + " / " + (int)(AbsPower / 1000) + "kW, Speed : " + (int)MpS.ToKpH(AbsSpeedMpS) + "km/h (Rot Speed:" + (int)RotSpeed + "rpm) , UM=" + (int)Voltage + "V,  BEMF = " + (int)BackEMF + ", R=" + TotalR + " ohm, Bench R=" + GlobalR + "ohms , Field Factor: " + ActualFieldChangeFactor + ", I=" + (int)IInductor + " A, Flow = " + (int)InductFlow + " Wb, F=" + (int)(NewMotiveForceN / 1000) + " KN (total) - "+ (int)(InducedForce / 1000) + "kN (motor), Overload : " + OverLoad + "(" + (int)(OverLoadValue / 1000) + "Kw), OverAmp = " + OverAmp);
                     }
                     else
                     {
@@ -1039,8 +1168,8 @@ namespace Orts.Simulation.RollingStocks
 
             // ** Motive force set with WheelForce multiplied by number of motors
             NewMotiveForceN = WheelForce * DCMotorNumber;
-            if (NewMotiveForceN > MaxForceN)
-                NewMotiveForceN = MaxForceN;
+            if (NewMotiveForceN > GearingReductionMaxForce)
+                NewMotiveForceN = GearingReductionMaxForce;
 
             //** Giving value to display in cab                                                                         **//
             DisplayedAmperage = IInductor;

@@ -85,6 +85,16 @@ namespace Orts.Viewer3D.RollingStock
         {
             if (Locomotive.GearBoxController != null)
                 Locomotive.StartGearBoxIncrease();
+            if(Locomotive is MSTSElectricLocomotive)
+            {
+                if ((Locomotive as MSTSElectricLocomotive).GearingReductionNumber > 1)
+                    (Locomotive as MSTSElectricLocomotive).ChangeGearingReductionUp();
+            }
+            else if (Locomotive is MSTSDieselLocomotive)
+            {
+                if ((Locomotive as MSTSDieselLocomotive).GearingReductionNumber > 1)
+                    (Locomotive as MSTSDieselLocomotive).ChangeGearingReductionUp();
+            }
         }
 
         protected virtual void StopGearBoxIncrease()
@@ -97,6 +107,18 @@ namespace Orts.Viewer3D.RollingStock
         {
             if (Locomotive.GearBoxController != null)
                 Locomotive.StartGearBoxDecrease();
+            if (Locomotive is MSTSElectricLocomotive)
+            {
+                if ((Locomotive as MSTSElectricLocomotive).GearingReductionNumber > 1)
+                    (Locomotive as MSTSElectricLocomotive).ChangeGearingReductionDown();
+            }
+            else if (Locomotive is MSTSDieselLocomotive)
+            {
+                if ((Locomotive as MSTSDieselLocomotive).GearingReductionNumber > 1)
+                    (Locomotive as MSTSDieselLocomotive).ChangeGearingReductionDown();
+            }
+
+
         }
 
         protected virtual void StopGearBoxDecrease()
