@@ -64,6 +64,18 @@ namespace Orts.Simulation.RollingStocks
         public float IdleRPM;
         public float HeatingRPM;
         public float HeatingVoltage;    //** Not the best place to put, would be better linked to a generator or alternator class
+        /// <summary>
+        /// If generator voltage fall under heating voltage, throttle is set to 0 and heating is kept on
+        /// </summary>       
+        public bool VoltageBelowHeatingVCutTraction = true;
+        /// <summary>
+        /// If heating is set to on, a virtual 0 notch is added, allowing to cut heating by a throttle up control before throttling up
+        /// </summary>       
+        /// 
+        public bool HeatingOnAddZeroNotch = false;
+
+        public bool HeatingCutByThrottleUp = false;
+
         public float HeatingAskedPower;
         public float HeatingAbsorbedPower;
         public bool HeatingStatus = false;
@@ -411,6 +423,9 @@ namespace Orts.Simulation.RollingStocks
                 case "engine(ortsdcmotorfieldspeeddown": FieldChangeSpeedDownMatrix = new DataMatrix2D(stf, false); break;
                 case "engine(ortsdcmotorfieldnotch": FieldChangeNotchMatrix = new DataMatrix(stf); FieldChangeByNotch = true; break;
                 case "engine(ortsdcmotorusedcforce": UseDCMotorForce = stf.ReadBoolBlock(false); break;
+                
+                case "engine(ortsdcmotorheatingaddzeronotch": HeatingOnAddZeroNotch = stf.ReadBoolBlock(false); break;
+
                 case "engine(ortsdcmotorgearingreductionnumber": GearingReductionNumber = stf.ReadIntBlock(1); break;
 
                 case "engine(ortsdcmotorgearingreductionmaxforce":
@@ -794,7 +809,9 @@ namespace Orts.Simulation.RollingStocks
             GearingReductionForceN = locoCopy.GearingReductionForceN;
 
             SecondControllerActive = locoCopy.SecondControllerActive;
-
+            VoltageBelowHeatingVCutTraction = locoCopy.VoltageBelowHeatingVCutTraction;
+            HeatingOnAddZeroNotch = locoCopy.HeatingOnAddZeroNotch;
+            HeatingCutByThrottleUp =locoCopy.HeatingCutByThrottleUp;
         }
 
         public override void Initialize()
@@ -1071,14 +1088,20 @@ namespace Orts.Simulation.RollingStocks
                 DemandedVoltage = GeneratorLowVoltage + ((FullVoltage - GeneratorLowVoltage) * WantedNotch);
 
 
+                if(HeatingCutByThrottleUp==true)
+                {
+                    DemandedVoltage = 0;
+                }
+
                 if ((this.DieselEngines[0].IsHeatingRPMCommand() == true) && (IsLeadLocomotive() == true)&&(WantedNotch!=0)&&(PrevNotch==0))
                 {
-                        Voltage = 0;
+                    DemandedVoltage = 0;
+                    //Voltage = 0;
                 }
 
 //                Simulator.Confirmer.Information((HeatingNotch/NotchCount) + " / "+ (PrevNotch * ((NotchCount - FieldChangeNumber)) / (NotchCount)) + " - "+DemandedVoltage+" / "+ this.DieselEngines[0].HeatingVoltage);
 
-                if ((DemandedVoltage < this.DieselEngines[0].HeatingVoltage)&&((PrevNotch*((NotchCount- FieldChangeNumber)) / (NotchCount) > (HeatingNotch/NotchCount))))
+                if ((DemandedVoltage < this.DieselEngines[0].HeatingVoltage)&&((PrevNotch*((NotchCount- FieldChangeNumber)) / (NotchCount) > (HeatingNotch/NotchCount)))&&(VoltageBelowHeatingVCutTraction))
                 {
 //                    HeatingForceThrottleToZero=true;
                     ThrottleToZero();
@@ -1114,7 +1137,15 @@ namespace Orts.Simulation.RollingStocks
             }
             DieselUsablePower -= HeatingAbsorbedPower;
 
-            if (ThrottlePercent > 0)
+            if((ThrottlePercent==0)&&(HeatingCutByThrottleUp==true))
+            {
+                if (Voltage > DemandedVoltage)
+                {
+                    Voltage -= 1500 * elapsedClockSeconds; //40V seconds, would be set by parameter as depends on loco.
+                    if (Voltage < 0) Voltage = 0;
+                }
+            }
+            else if (ThrottlePercent > 0)
             {
                 //                bool wCurrentPriority = true;
 
@@ -1126,20 +1157,20 @@ namespace Orts.Simulation.RollingStocks
                     if (Voltage < DemandedVoltage)
                     {
                         //** Testing power after Voltage increase: if voltage*current > available power, voltage=power/current   **//
-                        if ((IInductor * (Voltage + (40 * elapsedClockSeconds))) > ((DieselUsablePower) / DCMotorNumber))
+                        if ((IInductor * (Voltage + (80 * elapsedClockSeconds))) > ((DieselUsablePower) / DCMotorNumber))
                         {
                             Voltage = (DieselUsablePower / PrevIInductor) / DCMotorNumber;
                             OverLoad = true;
                         }
                         else
                         {
-                            Voltage += 40 * elapsedClockSeconds; //40V seconds, would be set by parameter as depends on loco.
+                            Voltage += 80 * elapsedClockSeconds; //80V seconds, would be set by parameter as depends on loco.
                         }
 
                     }
                     else if (Voltage > DemandedVoltage)
                     {
-                        Voltage -= 40 * elapsedClockSeconds; //40V seconds, would be set by parameter as depends on loco.
+                        Voltage -= 80 * elapsedClockSeconds; //80V seconds, would be set by parameter as depends on loco.
                     }
                     else
                     {

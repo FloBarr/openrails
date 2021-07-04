@@ -1644,7 +1644,7 @@ namespace Orts.Simulation.RollingStocks
             if ((NotchingUp == true) && (TimeBetweenNotchingUp > ElapsedTimeBetweenNotchingUp))
             {
                 ElapsedTimeBetweenNotchingUp += elapsedClockSeconds;
- //               Trace.TraceInformation("Notching Up : next notch in " + (TimeBetweenNotchingUp - ElapsedTimeBetweenNotchingUp));
+//                Simulator.Confirmer.Warning("Notching Up : next notch in " + (TimeBetweenNotchingUp - ElapsedTimeBetweenNotchingUp));
 
                 if (ElapsedTimeBetweenNotchingUp > TimeBetweenNotchingUp)
                 {
@@ -1653,10 +1653,24 @@ namespace Orts.Simulation.RollingStocks
                 }
             }
 
+            if ((this is MSTSDieselLocomotive) && (ThrottlePercent == 0) && (NotchingToMax == true) && (NotchingUp == false))
+            {
+                if (((this as MSTSDieselLocomotive).HeatingOnAddZeroNotch) && ((this as MSTSDieselLocomotive).HeatingCutByThrottleUp == false) && (Train.CarElectricHeatOn == true))
+                {
+                    (this as MSTSDieselLocomotive).HeatingCutByThrottleUp = true;
+                    Simulator.Confirmer.Warning("CD : Cutting Heating, Notch remaining at 0");
+                    NotchingUp = true;
+                }
+            }
+
             if ((NotchingToMax == true) && (NotchingUp == false)&&(DCMotorThrottleIncreaseForbidden==false))
             {
                 if(DynamicBrake==false)
                 {
+                    if ((this is MSTSDieselLocomotive) && (ThrottlePercent == 0) && (NotchingToMax == true) && (NotchingUp == false))
+                    {
+                        (this as MSTSDieselLocomotive).HeatingCutByThrottleUp = false;
+                    }
                     // When we have notches and the current Notch does not require smooth, we go directly to the next notch
                     if ((ThrottleController.CurrentNotch < ThrottleController.Notches.Count - 1) && (!ThrottleController.Notches[ThrottleController.CurrentNotch].Smooth))
                     {
@@ -3208,6 +3222,21 @@ namespace Orts.Simulation.RollingStocks
             NotchingToMax = false;
             NotchingToZero = false;
             if ((DCMotorThrottleIncreaseForbidden == true)&&(DynamicBrake==false)) return;
+
+            if ((this is MSTSDieselLocomotive) && (ThrottlePercent == 0))
+            {
+                if (((this as MSTSDieselLocomotive).HeatingOnAddZeroNotch) && ((this as MSTSDieselLocomotive).HeatingCutByThrottleUp == false)&&(Train.CarElectricHeatOn == true))
+                {
+                    (this as MSTSDieselLocomotive).HeatingCutByThrottleUp = true;
+                    Simulator.Confirmer.Warning("Cutting Heating, Notch remaining at 0");
+                    return;
+                }
+                else if (((this as MSTSDieselLocomotive).HeatingOnAddZeroNotch) && ((this as MSTSDieselLocomotive).HeatingCutByThrottleUp == true))
+                {
+                    (this as MSTSDieselLocomotive).HeatingCutByThrottleUp = false;
+                    Simulator.Confirmer.Warning("Heating set to on, Notch remaining under 0");
+                }
+            }
             if (NotchingUp == true) return;
 
             if(TimeBetweenNotchingUp>0) NotchingUp = true;
@@ -3288,6 +3317,15 @@ namespace Orts.Simulation.RollingStocks
 
         public void StartThrottleDecrease(float? target)
         {
+            if ((this is MSTSDieselLocomotive) && (ThrottlePercent == 0))
+            {
+                if (((this as MSTSDieselLocomotive).HeatingOnAddZeroNotch) && ((this as MSTSDieselLocomotive).HeatingCutByThrottleUp == true))
+                {
+                    Simulator.Confirmer.Warning("Throttle = 0, HeatingCutByThrottleUp = 1 -> set to 0");
+                    (this as MSTSDieselLocomotive).HeatingCutByThrottleUp = false;
+                }
+            }
+
             if (ThrottleController.CurrentValue <= ThrottleController.MinimumValue)
                 return;
 
