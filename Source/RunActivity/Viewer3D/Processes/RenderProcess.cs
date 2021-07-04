@@ -24,7 +24,6 @@ using ORTS.Common;
 using System;
 using System.Diagnostics;
 using System.Windows.Forms;
-using static ORTS.Settings.UserSettings;
 
 namespace Orts.Viewer3D.Processes
 {
@@ -44,6 +43,8 @@ namespace Orts.Viewer3D.Processes
         readonly Form GameForm;
         readonly Point GameWindowSize;
         readonly WatchdogToken WatchdogToken;
+        readonly System.Drawing.Point GameFullScreenOrigin = new System.Drawing.Point(0, 0);
+        private System.Drawing.Point GameWindowOrigin = new System.Drawing.Point(0, 0);
 
         public GraphicsDeviceManager GraphicsDeviceManager { get; private set; }
 
@@ -98,10 +99,23 @@ namespace Orts.Viewer3D.Processes
             GraphicsDeviceManager.SynchronizeWithVerticalRetrace = Game.Settings.VerticalSync;
             GraphicsDeviceManager.PreferredBackBufferFormat = SurfaceFormat.Color;
             GraphicsDeviceManager.PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8;
-            GraphicsDeviceManager.IsFullScreen = Game.Settings.FullScreen;
-            GraphicsDeviceManager.PreferMultiSampling = (AntiAliasingMethod)Game.Settings.AntiAliasing != AntiAliasingMethod.None;
-            GraphicsDeviceManager.HardwareModeSwitch = !Game.Settings.FastFullScreenAltTab;
+            GraphicsDeviceManager.IsFullScreen = false;
+            GraphicsDeviceManager.PreferMultiSampling = Game.Settings.MultisamplingCount > 1;
             GraphicsDeviceManager.PreparingDeviceSettings += new EventHandler<PreparingDeviceSettingsEventArgs>(GDM_PreparingDeviceSettings);
+            var screen = Game.Settings.FastFullScreenAltTab ? Screen.FromControl(GameForm) : Screen.PrimaryScreen;
+            if (screen.Primary)
+            {
+                var wa = Screen.PrimaryScreen.WorkingArea;
+                GameForm.Location = new System.Drawing.Point((wa.Right - GameWindowSize.X) / 2, (wa.Bottom - GameWindowSize.Y) / 2);
+            }
+            else
+                GameForm.Location = new System.Drawing.Point((screen.Bounds.Width - GameWindowSize.X) / 2, (screen.Bounds.Height - GameWindowSize.Y) / 2);
+            GameWindowOrigin = GameForm.Location;
+
+            if (Game.Settings.FullScreen)
+                ToggleFullScreen();
+
+            SynchronizeGraphicsDeviceManager();
         }
 
         void GDM_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
@@ -109,49 +123,19 @@ namespace Orts.Viewer3D.Processes
             // This enables NVIDIA PerfHud to be run on Open Rails.
             foreach (var adapter in GraphicsAdapter.Adapters)
             {
-                if (adapter.Description.Contains("PerfHUD"))
+                // FIXME: MonoGame fails with the following:
+                /*if (adapter.Description.Contains("PerfHUD"))
                 {
-                    e.GraphicsDeviceInformation.Adapter = adapter;
                     GraphicsAdapter.UseReferenceDevice = true;
                     break;
-                }
+                }*/
+                e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
             }
 
-            e.GraphicsDeviceInformation.GraphicsProfile = e.GraphicsDeviceInformation.Adapter.IsProfileSupported(GraphicsProfile.HiDef) ? GraphicsProfile.HiDef : GraphicsProfile.Reach;
-
-            var pp = e.GraphicsDeviceInformation.PresentationParameters;
-            switch ((AntiAliasingMethod)Game.Settings.AntiAliasing)
-            {
-                case AntiAliasingMethod.None:
-                default:
-                    break;
-                case AntiAliasingMethod.MSAA2x:
-                    pp.MultiSampleCount = 2;
-                    break;
-                case AntiAliasingMethod.MSAA4x:
-                    pp.MultiSampleCount = 4;
-                    break;
-                case AntiAliasingMethod.MSAA8x:
-                    pp.MultiSampleCount = 8;
-                    break;
-                case AntiAliasingMethod.MSAA16x:
-                    pp.MultiSampleCount = 16;
-                    break;
-                case AntiAliasingMethod.MSAA32x:
-                    pp.MultiSampleCount = 32;
-                    break;
-            }
-            if (pp.IsFullScreen)
-            {
-                var screen = Screen.FromControl(GameForm);
-                pp.BackBufferWidth = screen.Bounds.Width;
-                pp.BackBufferHeight = screen.Bounds.Height;
-            }
-            else
-            {
-                pp.BackBufferWidth = GameWindowSize.X;
-                pp.BackBufferHeight = GameWindowSize.Y;
-            }
+            // This stops ResolveBackBuffer() clearing the back buffer.
+            e.GraphicsDeviceInformation.PresentationParameters.RenderTargetUsage = RenderTargetUsage.PreserveContents;
+            e.GraphicsDeviceInformation.PresentationParameters.DepthStencilFormat = DepthFormat.Depth24Stencil8;
+            if (GraphicsDeviceManager.PreferMultiSampling) e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = Game.Settings.MultisamplingCount;
         }
 
         internal void Start()
@@ -160,28 +144,11 @@ namespace Orts.Viewer3D.Processes
 
             DisplaySize = new Point(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
-            // Validate that the DirectX feature level is one we understand
-            if (!Enum.IsDefined(typeof(DirectXFeature), "Level" + Game.Settings.DirectXFeatureLevel))
-                Game.Settings.DirectXFeatureLevel = "";
-
-            if (Game.Settings.DirectXFeatureLevel == "")
-            {
-                // Choose default feature level based on profile
-                if (GraphicsDevice.GraphicsProfile == GraphicsProfile.HiDef)
-                    Game.Settings.DirectXFeatureLevel = "10_0";
-                else
-                    Game.Settings.DirectXFeatureLevel = "9_1";
-            }
-
             if (Game.Settings.ShadowMapDistance == 0)
                 Game.Settings.ShadowMapDistance = Game.Settings.ViewingDistance / 2;
 
             ShadowMapCount = Game.Settings.ShadowMapCount;
-            if (!Game.Settings.DynamicShadows)
-                ShadowMapCount = 0;
-            else if ((ShadowMapCount > 1) && !Game.Settings.IsDirectXFeatureLevelIncluded(DirectXFeature.Level9_3))
-                ShadowMapCount = 1;
-            else if (ShadowMapCount < 0)
+            if (!Game.Settings.DynamicShadows || ShadowMapCount < 0)
                 ShadowMapCount = 0;
             else if (ShadowMapCount > ShadowMapCountMaximum)
                 ShadowMapCount = ShadowMapCountMaximum;
@@ -263,7 +230,7 @@ namespace Orts.Viewer3D.Processes
 
             if (ToggleFullScreenRequested)
             {
-                GraphicsDeviceManager.ToggleFullScreen();
+                SynchronizeGraphicsDeviceManager();
                 ToggleFullScreenRequested = false;
                 Viewer.DefaultViewport = GraphicsDevice.Viewport;
             }
@@ -278,6 +245,39 @@ namespace Orts.Viewer3D.Processes
                 // Swap frames and start the next update (non-threaded updater does the whole update).
                 SwapFrames(ref CurrentFrame, ref NextFrame);
                 Game.UpdaterProcess.StartUpdate(NextFrame, gameTime.TotalGameTime.TotalSeconds);
+            }
+        }
+
+        void SynchronizeGraphicsDeviceManager()
+        {
+            var screen = Game.Settings.FastFullScreenAltTab ? Screen.FromControl(GameForm) : Screen.PrimaryScreen;
+            if (IsFullScreen)
+            {
+                GraphicsDeviceManager.PreferredBackBufferWidth = screen.Bounds.Width;
+                GraphicsDeviceManager.PreferredBackBufferHeight = screen.Bounds.Height;
+            }
+            else
+            {
+                GraphicsDeviceManager.PreferredBackBufferWidth = GameWindowSize.X;
+                GraphicsDeviceManager.PreferredBackBufferHeight = GameWindowSize.Y;
+            }
+            if (Game.Settings.FastFullScreenAltTab)
+            {
+                GameForm.FormBorderStyle = IsFullScreen ? System.Windows.Forms.FormBorderStyle.None : System.Windows.Forms.FormBorderStyle.FixedSingle;
+                if (IsFullScreen)
+                {
+                    GameWindowOrigin = GameForm.Location;
+                    GameForm.Location = GameFullScreenOrigin;
+                }
+                else
+                {
+                    GameForm.Location = GameWindowOrigin;
+                }
+                GraphicsDeviceManager.ApplyChanges();
+            }
+            else if (GraphicsDeviceManager.IsFullScreen != IsFullScreen)
+            {
+                GraphicsDeviceManager.ToggleFullScreen();
             }
         }
 
@@ -358,10 +358,12 @@ namespace Orts.Viewer3D.Processes
             frame2 = temp;
         }
 
+        bool IsFullScreen;
         bool ToggleFullScreenRequested;
         [CallOnThread("Updater")]
         public void ToggleFullScreen()
         {
+            IsFullScreen = !IsFullScreen;
             ToggleFullScreenRequested = true;
         }
 

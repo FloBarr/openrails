@@ -1,0 +1,226 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Menu</name>
+    </assembly>
+    <members>
+        <member name="T:ORTS.KeyInputEditControl">
+            <summary>
+            A form used to edit keyboard input settings, in combination with <see cref="T:ORTS.KeyInputControl"/>.
+            </summary>
+            <remarks>
+            <para>This form is opened as a modal dialog by <see cref="T:ORTS.KeyInputControl"/> and is not intended to be directly used by other code.</para>
+            <para>The form hooks the keyboard input (using a low-level hook) and captures all input whilst focused. The captured input is translated in to the appropriate form for the keyboard input setting being modified (i.e. modifier only, or key + modifiers). Only scan codes are used, never virtual keys.</para>
+            <para>The <see cref="T:System.Windows.Forms.DialogResult"/> indicates the user's response: <see cref="F:System.Windows.Forms.DialogResult.OK"/> for "accept", <see cref="F:System.Windows.Forms.DialogResult.Cancel"/> for "cancel" and <see cref="F:System.Windows.Forms.DialogResult.Ignore"/> for "reset to default".</para>
+            </remarks>
+        </member>
+        <member name="F:ORTS.KeyInputEditControl.components">
+            <summary>
+            Required designer variable.
+            </summary>
+        </member>
+        <member name="M:ORTS.KeyInputEditControl.Dispose(System.Boolean)">
+            <summary>
+            Clean up any resources being used.
+            </summary>
+            <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        </member>
+        <member name="M:ORTS.KeyInputEditControl.InitializeComponent">
+            <summary>
+            Required method for Designer support - do not modify
+            the contents of this method with the code editor.
+            </summary>
+        </member>
+        <member name="F:ORTS.ImportExportSaveForm.components">
+            <summary>
+            Required designer variable.
+            </summary>
+        </member>
+        <member name="M:ORTS.ImportExportSaveForm.Dispose(System.Boolean)">
+            <summary>
+            Clean up any resources being used.
+            </summary>
+            <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        </member>
+        <member name="M:ORTS.ImportExportSaveForm.InitializeComponent">
+            <summary>
+            Required method for Designer support - do not modify
+            the contents of this method with the code editor.
+            </summary>
+        </member>
+        <member name="T:ORTS.KeyInputControl">
+            <summary>
+            A control for viewing and altering keyboard input settings, in combination with <see cref="T:ORTS.KeyInputEditControl"/>.
+            </summary>
+            <remarks>
+            <para>This control will modify the <see cref="T:ORTS.Settings.UserCommandInput"/> it is given (but not the default input).</para>
+            <para>The control displays the currently assigtned keyboard shortcut and highlights the text if it is not the default. Clicking on the text invokes the editing behaviour via <see cref="T:ORTS.KeyInputEditControl"/>.</para>
+            </remarks>
+        </member>
+        <member name="F:ORTS.KeyInputControl.components">
+            <summary> 
+            Required designer variable.
+            </summary>
+        </member>
+        <member name="M:ORTS.KeyInputControl.Dispose(System.Boolean)">
+            <summary> 
+            Clean up any resources being used.
+            </summary>
+            <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        </member>
+        <member name="M:ORTS.KeyInputControl.InitializeComponent">
+            <summary> 
+            Required method for Designer support - do not modify 
+            the contents of this method with the code editor.
+            </summary>
+        </member>
+        <member name="T:ORTS.Properties.Resources">
+            <summary>
+              A strongly-typed resource class, for looking up localized strings, etc.
+            </summary>
+        </member>
+        <member name="P:ORTS.Properties.Resources.ResourceManager">
+            <summary>
+              Returns the cached ResourceManager instance used by this class.
+            </summary>
+        </member>
+        <member name="P:ORTS.Properties.Resources.Culture">
+            <summary>
+              Overrides the current thread's CurrentUICulture property for all
+              resource lookups using this strongly typed resource class.
+            </summary>
+        </member>
+        <member name="P:ORTS.Properties.Resources.ExpanderClosed">
+            <summary>
+              Looks up a localized resource of type System.Drawing.Bitmap.
+            </summary>
+        </member>
+        <member name="P:ORTS.Properties.Resources.ExpanderClosedDisabled">
+            <summary>
+              Looks up a localized resource of type System.Drawing.Bitmap.
+            </summary>
+        </member>
+        <member name="P:ORTS.Properties.Resources.ExpanderOpen">
+            <summary>
+              Looks up a localized resource of type System.Drawing.Bitmap.
+            </summary>
+        </member>
+        <member name="M:ORTS.ResumeForm.Found(ORTS.ResumeForm.Save)">
+            <summary>
+            Saves may come from other, foreign installations (i.e. not this PC). 
+            They can be replayed or resumed on this PC but they will contain activity / path / consist filenames
+            and these may be inappropriate for this PC, typically having a different path.
+            This method tries to use the paths in the Save if they exist on the current PC. 
+            If not, it prompts the user to locate a matching file from those on the current PC.
+            
+            The save file is then modified to contain filename(s) from the current PC instead.
+            </summary>
+        </member>
+        <member name="F:ORTS.ResumeForm.components">
+            <summary>
+            Required designer variable.
+            </summary>
+        </member>
+        <member name="M:ORTS.ResumeForm.Dispose(System.Boolean)">
+            <summary>
+            Clean up any resources being used.
+            </summary>
+            <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        </member>
+        <member name="M:ORTS.ResumeForm.InitializeComponent">
+            <summary>
+            Required method for Designer support - do not modify
+            the contents of this method with the code editor.
+            </summary>
+        </member>
+        <member name="M:ORTS.MainForm.HideStartParameters(System.String[])">
+            <summary>
+            Change
+                "Start time: 10:30$$create=00:04/ahead=0040ElghLE70F363U"
+            to
+                "Start time: 10:30"
+            for higher-level presentation
+            </summary>
+            <param name="info"></param>
+            <returns></returns>
+        </member>
+        <member name="M:ORTS.MainForm.Win32.LockWindowUpdate(System.IntPtr)">
+            <summary>
+            Lock ore relase the wndow for updating.
+            </summary>
+        </member>
+        <member name="F:ORTS.MainForm.components">
+            <summary>
+            Required designer variable.
+            </summary>
+        </member>
+        <member name="M:ORTS.MainForm.Dispose(System.Boolean)">
+            <summary>
+            Clean up any resources being used.
+            </summary>
+            <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        </member>
+        <member name="M:ORTS.MainForm.InitializeComponent">
+            <summary>
+            Required method for Designer support - do not modify
+            the contents of this method with the code editor.
+            </summary>
+        </member>
+        <member name="M:ORTS.OptionsForm.GetValidWindowSize(System.String)">
+            <summary>
+            Returns user's [width]x[height] if expression is valid and values are sane, else returns previous value of setting.
+            </summary>
+        </member>
+        <member name="M:ORTS.OptionsForm.textBoxContentName_TextChanged(System.Object,System.EventArgs)">
+            <summary>
+            Edits to the input field are copied back to the list of content.
+            They are also checked for duplicate names which would lead to an exception when saving.
+            if duplicate, then " copy" is silently appended to the entry in list of content.
+            </summary>
+            <param name="sender"></param>
+            <param name="e"></param>
+        </member>
+        <member name="F:ORTS.OptionsForm.components">
+            <summary>
+            Required designer variable.
+            </summary>
+        </member>
+        <member name="M:ORTS.OptionsForm.Dispose(System.Boolean)">
+            <summary>
+            Clean up any resources being used.
+            </summary>
+            <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        </member>
+        <member name="M:ORTS.OptionsForm.InitializeComponent">
+            <summary>
+            Required method for Designer support - do not modify
+            the contents of this method with the code editor.
+            </summary>
+        </member>
+        <member name="T:ORTS.Task`1">
+            <summary>
+            Allows work to be done as a background task so that the form remains responsive (e.g. to a cancel or close button).
+            Note: The "work" part is done by the background thread and the "success" part is done by the form's thread, so
+            make sure the "success" part is short. 
+            </summary>
+            <typeparam name="T"></typeparam>
+        </member>
+        <member name="F:ORTS.TestingForm.components">
+            <summary>
+            Required designer variable.
+            </summary>
+        </member>
+        <member name="M:ORTS.TestingForm.Dispose(System.Boolean)">
+            <summary>
+            Clean up any resources being used.
+            </summary>
+            <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        </member>
+        <member name="M:ORTS.TestingForm.InitializeComponent">
+            <summary>
+            Required method for Designer support - do not modify
+            the contents of this method with the code editor.
+            </summary>
+        </member>
+    </members>
+</doc>

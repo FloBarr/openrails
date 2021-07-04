@@ -41,15 +41,14 @@ namespace Orts.Viewer3D
             var basePath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.Windows.Forms.Application.ExecutablePath), "Content");
             var effectFileName = System.IO.Path.Combine(basePath, filename + ".fx");
 
-            var input = new EffectContent()
+            EffectContent effectSource = new EffectContent
             {
-                // Bizarrely, MonoGame loads the content from the identity's filename and ignores the EffectCode property, so we don't need to bother loading the file ourselves
                 Identity = new ContentIdentity(effectFileName),
+                EffectCode = File.ReadAllText(effectFileName),
             };
-            var context = new ProcessorContext();
-            var processor = new EffectProcessor();
-            var effect = processor.Process(input, context);
-            return effect.GetEffectCode();
+            EffectProcessor processor = new EffectProcessor();
+            CompiledEffectContent compiledEffect = processor.Process(effectSource, new ProcessorContext());
+            return compiledEffect.GetEffectCode();
         }
     }
 
@@ -61,15 +60,13 @@ namespace Orts.Viewer3D
         public override string IntermediateDirectory { get { return string.Empty; } }
         public override string OutputDirectory { get { return string.Empty; } }
         public override string OutputFilename { get { return string.Empty; } }
-
-        public override ContentIdentity SourceIdentity { get { return sourceIdentity; } }
-        readonly ContentIdentity sourceIdentity = new ContentIdentity();
+        public override ContentIdentity SourceIdentity { get { return new ContentIdentity(""); } }
 
         public override OpaqueDataDictionary Parameters { get { return parameters; } }
-        readonly OpaqueDataDictionary parameters = new OpaqueDataDictionary();
+        OpaqueDataDictionary parameters = new OpaqueDataDictionary();
 
         public override ContentBuildLogger Logger { get { return logger; } }
-        readonly ContentBuildLogger logger = new Logger();
+        ContentBuildLogger logger = new Logger();
 
         public override void AddDependency(string filename) { }
         public override void AddOutputFile(string filename) { }
@@ -81,9 +78,17 @@ namespace Orts.Viewer3D
 
     class Logger : ContentBuildLogger
     {
-        public override void LogMessage(string message, params object[] messageArgs) => Console.WriteLine(message, messageArgs);
-        public override void LogImportantMessage(string message, params object[] messageArgs) => Console.WriteLine(message, messageArgs);
-        public override void LogWarning(string helpLink, ContentIdentity contentIdentity, string message, params object[] messageArgs) => Console.WriteLine(message, messageArgs);
+        public override void LogMessage(string message, params object[] messageArgs) { Console.WriteLine(message, messageArgs); }
+        public override void LogImportantMessage(string message, params object[] messageArgs) { Console.WriteLine(message, messageArgs); }
+        public override void LogWarning(string helpLink, ContentIdentity contentIdentity, string message, params object[] messageArgs)
+        {
+            var warning = "";
+            if (messageArgs != null && messageArgs.Length != 0)
+                warning += string.Format(message, messageArgs);
+            else if (!string.IsNullOrEmpty(message))
+                warning += message;
+            Console.WriteLine("{0}({1}): {2}", Path.GetFileName(contentIdentity.SourceFilename), contentIdentity.FragmentIdentifier, warning);
+        }
     }
 
     [CallOnThread("Render")]
@@ -276,11 +281,11 @@ namespace Orts.Viewer3D
         readonly EffectParameter sideVector;
         readonly EffectParameter imageBlurStep;
         readonly EffectParameter imageTexture;
+        readonly EffectParameter blurTexture;
 
         public void SetData(ref Matrix v)
         {
-            var eyeVector = Vector3.Normalize(new Vector3(v.M13, v.M23, v.M33));
-            sideVector.SetValue(Vector3.Normalize(Vector3.Cross(eyeVector, Vector3.Down)));
+            sideVector.SetValue(v.Right);
         }
 
         public void SetData(ref Matrix wvp, Texture2D texture)
@@ -296,7 +301,7 @@ namespace Orts.Viewer3D
 
         public void SetBlurData(Texture2D texture)
         {
-            imageTexture.SetValue(texture);
+            blurTexture.SetValue(texture);
             imageBlurStep.SetValue(texture != null ? 1f / texture.Width : 0);
         }
 
@@ -307,6 +312,7 @@ namespace Orts.Viewer3D
             sideVector = Parameters["SideVector"];
             imageBlurStep = Parameters["ImageBlurStep"];
             imageTexture = Parameters["ImageTexture"];
+            blurTexture = Parameters["BlurTexture"];
         }
     }
 
@@ -651,7 +657,7 @@ namespace Orts.Viewer3D
             texSize.SetValue(new Vector2(width, height));
         }
 
-        public void SetLightPositions(Vector4 light1Position, Vector4 light2Position)
+        public void SetLightPositions (Vector4 light1Position, Vector4 light2Position)
         {
             light1Pos.SetValue(light1Position);
             light2Pos.SetValue(light2Position);
@@ -690,16 +696,14 @@ namespace Orts.Viewer3D
         readonly EffectParameter normalColor;
         readonly EffectParameter limitColor;
         readonly EffectParameter pointerColor;
-        readonly EffectParameter interventionColor;
         readonly EffectParameter backgroundColor;
-        //readonly EffectParameter imageTexture;
+        readonly EffectParameter imageTexture;
 
-        public void SetData(Vector4 angle, Color gaugeColor, Color needleColor, Color overspeedColor)
+        public void SetData(Vector4 angle, Color gaugeColor, Color needleColor)
         {
             limitAngle.SetValue(angle);
             limitColor.SetValue(gaugeColor.ToVector4());
             pointerColor.SetValue(needleColor.ToVector4());
-            interventionColor.SetValue(overspeedColor.ToVector4());
         }
 
         public DriverMachineInterfaceShader(GraphicsDevice graphicsDevice)
@@ -710,8 +714,7 @@ namespace Orts.Viewer3D
             pointerColor = Parameters["PointerColor"];
             backgroundColor = Parameters["BackgroundColor"];
             limitAngle = Parameters["LimitAngle"];
-            //imageTexture = Parameters["ImageTexture"];
-            interventionColor = Parameters["InterventionColor"];
+            imageTexture = Parameters["ImageTexture"];
         }
     }
 

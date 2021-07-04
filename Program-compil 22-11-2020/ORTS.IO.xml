@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ORTS.IO</name>
+    </assembly>
+    <members>
+        <member name="T:ORTS.IO.BufferedInMemoryStream">
+            <summary>
+            A <see cref="T:System.IO.Stream"/> which buffers both reads and writes in memory (as a <see cref="T:System.IO.MemoryStream"/>).
+            </summary>
+            <remarks>
+            <para>Treat this stream like any other; <see cref="M:ORTS.IO.BufferedInMemoryStream.Read(System.Byte[],System.Int32,System.Int32)"/>, <see cref="M:ORTS.IO.BufferedInMemoryStream.Write(System.Byte[],System.Int32,System.Int32)"/>, <see cref="M:ORTS.IO.BufferedInMemoryStream.Seek(System.Int64,System.IO.SeekOrigin)"/> all work normally (or close enough) in most
+            cases. There are some specific exceptions, which shouldn't be a problem normally, outlined below.</para>
+            <para>When reading, if the underlying stream does not report a length itself, the value reported by <see cref="P:ORTS.IO.BufferedInMemoryStream.Length"/> represents the amount
+            buffered. The <see cref="T:ORTS.IO.BufferedInMemoryStream"/> attempts to keep the <see cref="P:ORTS.IO.BufferedInMemoryStream.Length"/> beyond the current seek location at all times.</para>
+            <para>when reading, <see cref="M:ORTS.IO.BufferedInMemoryStream.Seek(System.Int64,System.IO.SeekOrigin)"/> will operate normally but only within the data already buffered; attempts to seek beyond this will raise
+            an exception. There is no way to force a certain amount of data to be buffered.</para>
+            <para>When writing, <see cref="M:ORTS.IO.BufferedInMemoryStream.Flush"/> is a no-op and <see cref="M:ORTS.IO.BufferedInMemoryStream.SetLength(System.Int64)"/> is not implemented. None of the <see cref="T:System.IO.Stream"/> methods and
+            properties will cause data to be written to the underlying stream.</para>
+            <para>When writing, to cause all buffered data to be written to the underlying stream, call <see cref="M:ORTS.IO.BufferedInMemoryStream.RealFlush"/>. This non-standard behavior
+            is due to unfortunate existing code which calls <see cref="M:ORTS.IO.BufferedInMemoryStream.Flush"/> after writing to a <see cref="T:System.IO.Stream"/>, which would otherwise cause us a
+            problem with write-once underlying streams (which we're specifically trying to support here).</para>
+            </remarks>
+        </member>
+        <member name="T:ORTS.IO.ByteEncoding">
+            <summary>
+            A basic encoding which maps bytes 0-255 to Unicode characters 0-255.
+            </summary>
+        </member>
+        <member name="M:ORTS.IO.ByteEncoding.GetByteCount(System.Char[],System.Int32,System.Int32)">
+            <summary>
+            Calculates the number of bytes produced by encoding a set of characters from the specified character array.
+            </summary>
+            <param name="chars">The character array containing the set of characters to encode.</param>
+            <param name="index">The index of the first character to encode.</param>
+            <param name="count">The number of characters to encode.</param>
+            <returns>The number of bytes produced by encoding the specified characters.</returns>
+        </member>
+        <member name="M:ORTS.IO.ByteEncoding.GetBytes(System.Char[],System.Int32,System.Int32,System.Byte[],System.Int32)">
+            <summary>
+            Encodes a set of characters from the specified character array into the specified byte array.
+            </summary>
+            <param name="chars">The character array containing the set of characters to encode.</param>
+            <param name="charIndex">The index of the first character to encode.</param>
+            <param name="charCount">The number of characters to encode.</param>
+            <param name="bytes">The byte array to contain the resulting sequence of bytes.</param>
+            <param name="byteIndex">The index at which to start writing the resulting sequence of bytes.</param>
+            <returns>The actual number of bytes written into <paramref name="bytes"/>.</returns>
+        </member>
+        <member name="M:ORTS.IO.ByteEncoding.GetCharCount(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            Calculates the number of characters produced by decoding a sequence of bytes from the specified byte array.
+            </summary>
+            <param name="bytes">The byte array containing the sequence of bytes to decode.</param>
+            <param name="index">The index of the first byte to decode.</param>
+            <param name="count">The number of bytes to decode.</param>
+            <returns>The number of characters produced by decoding the specified sequence of bytes.</returns>
+        </member>
+        <member name="M:ORTS.IO.ByteEncoding.GetChars(System.Byte[],System.Int32,System.Int32,System.Char[],System.Int32)">
+            <summary>
+            Decodes a sequence of bytes from the specified byte array into the specified character array.
+            </summary>
+            <param name="bytes">The byte array containing the sequence of bytes to decode.</param>
+            <param name="byteIndex">The index of the first byte to decode.</param>
+            <param name="byteCount">The number of bytes to decode.</param>
+            <param name="chars">The character array to contain the resulting set of characters.</param>
+            <param name="charIndex">The index at which to start writing the resulting set of characters.</param>
+            <returns>The actual number of characters written into <paramref name="chars"/>.</returns>
+        </member>
+        <member name="M:ORTS.IO.ByteEncoding.GetMaxByteCount(System.Int32)">
+            <summary>
+            Calculates the maximum number of bytes produced by encoding the specified number of characters.
+            </summary>
+            <param name="charCount">The number of characters to encode.</param>
+            <returns>The maximum number of bytes produced by encoding the specified number of characters.</returns>
+        </member>
+        <member name="M:ORTS.IO.ByteEncoding.GetMaxCharCount(System.Int32)">
+            <summary>
+            Calculates the maximum number of characters produced by decoding the specified number of bytes.
+            </summary>
+            <param name="byteCount">The number of bytes to decode.</param>
+            <returns>The maximum number of characters produced by decoding the specified number of bytes.</returns>
+        </member>
+    </members>
+</doc>

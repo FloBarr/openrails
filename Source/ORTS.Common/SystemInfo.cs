@@ -35,7 +35,6 @@ namespace ORTS.Common
             WriteEnvironment(output);
             WriteAvailableRuntimes(output);
             output.WriteLine("Runtime    = {0} ({1}bit)", Environment.Version, IntPtr.Size * 8);
-            WriteGraphicsAdapter(output);
         }
 
         static void WriteEnvironment(TextWriter output)
@@ -196,18 +195,6 @@ namespace ORTS.Common
                 output.Write(" {0} ", versionKeyName.Substring(1), fullVersion);
             }
             return fullVersion;
-        }
-
-        static void WriteGraphicsAdapter(TextWriter output)
-        {
-            foreach (var adapter in GraphicsAdapter.Adapters)
-            {
-                try
-                {
-                    output.WriteLine("{0} = {1}", adapter.DeviceName, adapter.Description);
-                }
-                catch (Exception) { }
-            }
         }
 
         static T SafeReadKey<T>(RegistryKey key, string name, T defaultValue)

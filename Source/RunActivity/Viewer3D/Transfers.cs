@@ -1,4 +1,4 @@
-// COPYRIGHT 2012, 2013, 2014 by the Open Rails project.
+﻿// COPYRIGHT 2012, 2013, 2014 by the Open Rails project.
 // 
 // This file is part of Open Rails.
 // 
@@ -70,6 +70,7 @@ namespace Orts.Viewer3D
     {
         readonly VertexBuffer VertexBuffer;
         readonly IndexBuffer IndexBuffer;
+        readonly int VertexCount;
         readonly int PrimitiveCount;
 
         public TransferPrimitive(Viewer viewer, float width, float height, WorldPosition position)
@@ -130,6 +131,7 @@ namespace Orts.Viewer3D
 
             VertexBuffer = new VertexBuffer(viewer.GraphicsDevice, typeof(VertexPositionTexture), verticies.Length, BufferUsage.WriteOnly);
             VertexBuffer.SetData(verticies);
+            VertexCount = verticies.Length;
 
             IndexBuffer = new IndexBuffer(viewer.GraphicsDevice, typeof(short), indicies.Length, BufferUsage.WriteOnly);
             IndexBuffer.SetData(indicies);
@@ -140,7 +142,7 @@ namespace Orts.Viewer3D
         {
             graphicsDevice.SetVertexBuffer(VertexBuffer);
             graphicsDevice.Indices = IndexBuffer;
-            graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, baseVertex: 0, startIndex: 0, PrimitiveCount);
+            graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, VertexCount, 0, PrimitiveCount);
         }
     }
 
@@ -165,8 +167,7 @@ namespace Orts.Viewer3D
         public override void SetState(GraphicsDevice graphicsDevice, Material previousMaterial)
         {
             var shader = Viewer.MaterialManager.SceneryShader;
-            var level9_3 = Viewer.Settings.IsDirectXFeatureLevelIncluded(ORTS.Settings.UserSettings.DirectXFeature.Level9_3);
-            shader.CurrentTechnique = shader.Techniques[level9_3 ? "TransferLevel9_3" : "TransferLevel9_1"];
+            shader.CurrentTechnique = shader.Techniques["TransferPS"];
             if (ShaderPasses == null) ShaderPasses = shader.CurrentTechnique.Passes.GetEnumerator();
             shader.ImageTexture = Texture;
             shader.ReferenceAlpha = 10;

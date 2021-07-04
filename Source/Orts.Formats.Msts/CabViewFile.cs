@@ -241,6 +241,10 @@ namespace Orts.Formats.Msts
         RPM_HELPER,
         ORTS_THROTTLE_UP_FORBIDDEN,
 
+        ORTS_GENERATOR_VOLTAGE,
+        RPM_HELPER,
+        ORTS_THROTTLE_UP_FORBIDDEN,
+
         // Further CabViewControlTypes must be added above this line, to avoid their malfunction in 3DCabs
         EXTERNALWIPERS,
         LEFTDOOR,

@@ -1,4 +1,4 @@
-// COPYRIGHT 2010, 2011, 2012, 2013, 2014 by the Open Rails project.
+﻿// COPYRIGHT 2010, 2011, 2012, 2013, 2014 by the Open Rails project.
 // 
 // This file is part of Open Rails.
 // 
@@ -37,9 +37,7 @@ namespace Orts.Viewer3D
         public const float MaxIntensityPPSPM2_16 = 0.010f;
         // Default 32 bit version.
         public const float MaxIntensityPPSPM2 = 0.035f;
-
-        public static bool IndexesAre32bit;
-
+                
         readonly Viewer Viewer;
         readonly WeatherControl WeatherControl;
         readonly Weather Weather;
@@ -51,8 +49,6 @@ namespace Orts.Viewer3D
 
         public PrecipitationViewer(Viewer viewer, WeatherControl weatherControl)
         {
-            IndexesAre32bit = viewer.Settings.IsDirectXFeatureLevelIncluded(ORTS.Settings.UserSettings.DirectXFeature.Level10_0);
-
             Viewer = viewer;
             WeatherControl = weatherControl;
             Weather = viewer.Simulator.Weather;
@@ -167,7 +163,7 @@ namespace Orts.Viewer3D
         {
             // Snow is the slower particle, hence longer duration, hence more particles in total.
             // Setting the precipitaton box size based on GraphicsDeviceCapabilities.
-            if (PrecipitationViewer.IndexesAre32bit)
+            if (graphicsDevice.GraphicsProfile == GraphicsProfile.HiDef)
             {
                 ParticleBoxLengthM = (float)Program.Simulator.Settings.PrecipitationBoxLength;
                 ParticleBoxWidthM = (float)Program.Simulator.Settings.PrecipitationBoxWidth;
@@ -179,20 +175,20 @@ namespace Orts.Viewer3D
                 ParticleBoxWidthM = ParticleBoxWidthM_16;
                 ParticleBoxHeightM = ParticleBoxHeightM_16;
             }
-            if (PrecipitationViewer.IndexesAre32bit)
+            if (graphicsDevice.GraphicsProfile == GraphicsProfile.HiDef)
                 MaxParticles = (int)(PrecipitationViewer.MaxIntensityPPSPM2 * ParticleBoxLengthM * ParticleBoxWidthM * ParticleBoxHeightM / SnowVelocityMpS / ParticleVelocityFactor);
             // Processing 16bit device
             else
                 MaxParticles = (int)(PrecipitationViewer.MaxIntensityPPSPM2_16 * ParticleBoxLengthM * ParticleBoxWidthM * ParticleBoxHeightM / SnowVelocityMpS / ParticleVelocityFactor);
             // Checking if graphics device is 16bit.
-            if (!PrecipitationViewer.IndexesAre32bit)
+            if (graphicsDevice.GraphicsProfile != GraphicsProfile.HiDef)
                 Debug.Assert(MaxParticles * VerticiesPerParticle < ushort.MaxValue, "The maximum number of precipitation verticies must be able to fit in a ushort (16bit unsigned) index buffer.");
             Vertices = new ParticleVertex[MaxParticles * VerticiesPerParticle];
             VertexDeclaration = new VertexDeclaration(ParticleVertex.SizeInBytes, ParticleVertex.VertexElements);
             VertexStride = Marshal.SizeOf(typeof(ParticleVertex));
             VertexBuffer = new DynamicVertexBuffer(graphicsDevice, VertexDeclaration, MaxParticles * VerticiesPerParticle, BufferUsage.WriteOnly);
             // Processing either 32bit or 16bit InitIndexBuffer depending on GraphicsDeviceCapabilities.
-            if (PrecipitationViewer.IndexesAre32bit)
+            if (graphicsDevice.GraphicsProfile == GraphicsProfile.HiDef)
                 IndexBuffer = InitIndexBuffer(graphicsDevice, MaxParticles * IndiciesPerParticle);
             else
                 IndexBuffer = InitIndexBuffer16(graphicsDevice, MaxParticles * IndiciesPerParticle);
@@ -400,15 +396,15 @@ namespace Orts.Viewer3D
                 if (FirstActiveParticle < FirstFreeParticle)
                 {
                     var numParticles = FirstFreeParticle - FirstActiveParticle;
-                    graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, baseVertex: 0, startIndex: FirstActiveParticle * IndiciesPerParticle, primitiveCount: numParticles * PrimitivesPerParticle);
+                    graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, FirstActiveParticle * VerticiesPerParticle, numParticles * VerticiesPerParticle, FirstActiveParticle * IndiciesPerParticle, numParticles * PrimitivesPerParticle);
                 }
                 else
                 {
                     var numParticlesAtEnd = MaxParticles - FirstActiveParticle;
                     if (numParticlesAtEnd > 0)
-                        graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, baseVertex: 0, startIndex: FirstActiveParticle * IndiciesPerParticle, primitiveCount: numParticlesAtEnd * PrimitivesPerParticle);
+                        graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, FirstActiveParticle * VerticiesPerParticle, numParticlesAtEnd * VerticiesPerParticle, FirstActiveParticle * IndiciesPerParticle, numParticlesAtEnd * PrimitivesPerParticle);
                     if (FirstFreeParticle > 0)
-                        graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, baseVertex: 0, startIndex: 0, primitiveCount: FirstFreeParticle * PrimitivesPerParticle);
+                        graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, FirstFreeParticle * VerticiesPerParticle, 0, FirstFreeParticle * PrimitivesPerParticle);
                 }
             }
 

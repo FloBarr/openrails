@@ -27,8 +27,6 @@ namespace Orts.Common
     public enum Event
     {
         None,
-        BatteryOff,
-        BatteryOn,
         BellOff,
         BellOn,
         BlowerChange,
@@ -103,8 +101,6 @@ namespace Orts.Common
         PermissionDenied,
         PermissionGranted,
         PermissionToDepart,
-        PowerKeyOff,
-        PowerKeyOn,
         ReverserChange,
         ReverserToForwardBackward,
         ReverserToNeutral,
@@ -137,7 +133,6 @@ namespace Orts.Common
         SteamPulse16,
         SteamSafetyValveOff,
         SteamSafetyValveOn,
-        TakeScreenshot,
         ThrottleChange,
         SecondThrottleChange,
         TrainBrakeChange,
@@ -189,28 +184,9 @@ namespace Orts.Common
         BoilerBlowdownOn,
         BoilerBlowdownOff,
 
-        WaterScoopRaiseLower,
-        WaterScoopBroken,
-
         SteamGearLeverToggle,
         AIFiremanSoundOn,
         AIFiremanSoundOff,
-
-        GearPosition0,
-        GearPosition1,
-        GearPosition2,
-        GearPosition3,
-        GearPosition4,
-        GearPosition5,
-        GearPosition6,
-        GearPosition7,
-        GearPosition8,
-
-        LargeEjectorOn,
-        LargeEjectorOff,
-        SmallEjectorOn,
-        SmallEjectorOff,
-
     }
 
     public static class Events
@@ -363,9 +339,6 @@ namespace Orts.Common
                         case 142: return Event.BrakePipePressureDecrease;
                         case 143: return Event.BrakePipePressureStoppedChanging;
 
-                        case 145: return Event.WaterScoopRaiseLower;
-                        case 146: return Event.WaterScoopBroken;
-
                         case 147: return Event.SteamGearLeverToggle;
                         case 148: return Event.AIFiremanSoundOn;
                         case 149: return Event.AIFiremanSoundOff;
@@ -405,12 +378,6 @@ namespace Orts.Common
                         case 175: return Event.BoilerBlowdownOn;
                         case 176: return Event.BoilerBlowdownOff;
 
-                        case 177: return Event.BatteryOn;
-                        case 178: return Event.BatteryOff;
-
-                        case 179: return Event.PowerKeyOn;
-                        case 180: return Event.PowerKeyOff;
-
                         case 181: return Event.GenericEvent1;
                         case 182: return Event.GenericEvent2;
                         case 183: return Event.GenericEvent3;
@@ -420,22 +387,6 @@ namespace Orts.Common
                         case 187: return Event.GenericEvent7;
                         case 188: return Event.GenericEvent8;
                         //
-
-
-                        case 200: return Event.GearPosition0;
-                        case 201: return Event.GearPosition1;
-                        case 202: return Event.GearPosition2;
-                        case 203: return Event.GearPosition3;
-                        case 204: return Event.GearPosition4;
-                        case 205: return Event.GearPosition5;
-                        case 206: return Event.GearPosition6;
-                        case 207: return Event.GearPosition7;
-                        case 208: return Event.GearPosition8;
-
-                        case 210: return Event.LargeEjectorOn;
-                        case 211: return Event.LargeEjectorOff;
-                        case 212: return Event.SmallEjectorOn;
-                        case 213: return Event.SmallEjectorOff;
 
                         default: return 0;
                     }

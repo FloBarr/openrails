@@ -298,7 +298,7 @@ namespace Orts.Viewer3D
                     AnimateMatrix(i, key);
         }
 
-        protected virtual void AnimateOneMatrix(int iMatrix, float key)
+        void AnimateOneMatrix(int iMatrix, float key)
         {
             if (SharedShape.Animations == null || SharedShape.Animations.Count == 0)
             {
@@ -398,6 +398,11 @@ namespace Orts.Viewer3D
             FrameRateMultiplier = 1 / frameRateDivisor;
         }
 
+        public AnimatedShape(Viewer viewer, string path, WorldPosition initialPosition)
+            : this(viewer, path, initialPosition, ShapeFlags.None)
+        {
+        }
+
         public override void PrepareFrame(RenderFrame frame, ElapsedTime elapsedTime)
         {
             // if the shape has animations
@@ -412,136 +417,6 @@ namespace Orts.Viewer3D
                     AnimateMatrix(matrix, AnimationKey);
             }
             SharedShape.PrepareFrame(frame, Location, XNAMatrices, Flags);
-        }
-    }
-
-        //Class AnalogClockShape to animate analog OR-Clocks as child of AnimatedShape <- PoseableShape <- StaticShape
-    public class AnalogClockShape : AnimatedShape
-    {
-        public AnalogClockShape(Viewer viewer, string path, WorldPosition initialPosition, ShapeFlags flags, float frameRateDivisor = 1.0f)
-            : base(viewer, path, initialPosition, flags)
-        {
-        }
-
-        protected override void AnimateOneMatrix(int iMatrix, float key)
-        {
-            if (SharedShape.Animations == null || SharedShape.Animations.Count == 0)
-            {
-                if (!SeenShapeAnimationError.ContainsKey(SharedShape.FilePath))
-                    Trace.TraceInformation("Ignored missing animations data in shape {0}", SharedShape.FilePath);
-                SeenShapeAnimationError[SharedShape.FilePath] = true;
-                return;  // animation is missing
-            }
-
-            if (iMatrix < 0 || iMatrix >= SharedShape.Animations[0].anim_nodes.Count || iMatrix >= XNAMatrices.Length)
-            {
-                if (!SeenShapeAnimationError.ContainsKey(SharedShape.FilePath))
-                    Trace.TraceInformation("Ignored out of bounds matrix {1} in shape {0}", SharedShape.FilePath, iMatrix);
-                SeenShapeAnimationError[SharedShape.FilePath] = true;
-                return;  // mismatched matricies
-            }
-
-            var anim_node = SharedShape.Animations[0].anim_nodes[iMatrix];
-            if (anim_node.controllers.Count == 0)
-                    return;  // missing controllers
-
-            // Start with the intial pose in the shape file.
-            var xnaPose = SharedShape.Matrices[iMatrix];
-
-            foreach (controller controller in anim_node.controllers)
-            {
-                // Determine the frame index from the current frame ('key'). We will be interpolating between two key
-                // frames (the items in 'controller') so we need to find the last one LESS than the current frame
-                // and interpolate with the one after it.
-                var index = 0;
-                for (var i = 0; i < controller.Count; i++)
-                    if (controller[i].Frame <= key)
-                        index = i;
-                    else if (controller[i].Frame > key) // Optimisation, not required for algorithm.
-                        break;
-
-                //OR-Clock-hands Animation -------------------------------------------------------------------------------------------------------------
-                var animName = anim_node.Name.ToLowerInvariant();
-                if (animName.IndexOf("hand_clock") > -1)           //anim_node seems to be an OR-Clock-hand-matrix of an analog OR-Clock
-                {
-                    int gameTimeInSec = Convert.ToInt32((long)TimeSpan.FromSeconds(Viewer.Simulator.ClockTime).Ticks / 100000); //Game time as integer in milliseconds
-                    int clockHour = gameTimeInSec / 360000 % 24;                          //HOUR of Game time
-                    gameTimeInSec %= 360000;                                                //Game time by Modulo 360000 -> resultes minutes as rest
-                    int clockMinute = gameTimeInSec / 6000;                                 //MINUTE of Game time
-                    gameTimeInSec %= 6000;                                                  //Game time by Modulo 6000 -> resultes seconds as rest
-                    int clockSecond = gameTimeInSec / 100;                                  //SECOND of Game time
-                    int clockCenti = (gameTimeInSec - clockSecond * 100);                   //CENTI-SECOND of Game time
-                    int clockQuadrant = 0;                                                  //Preset: Start with Anim-Control 0 (first quadrant of OR-Clock)
-                    bool calculateClockHand = false;                                        //Preset: No drawing of a new matrix by default
-                    float quadrantAmount = 1;                                               //Preset: Represents part of the way from position1 to position2 (float Value between 0 and 1)
-                    if (animName.StartsWith("orts_chand_clock")) //Shape matrix is a CentiSecond Hand (continuous moved second hand) of an analog OR-clock
-                    {
-                        clockQuadrant = (int)clockSecond / 15;                              //Quadrant of the clock / Key-Index of anim_node (int Values: 0, 1, 2, 3)
-                        quadrantAmount = (float)(clockSecond - (clockQuadrant * 15)) / 15;  //Seconds      Percentage quadrant related (float Value between 0 and 1) 
-                        quadrantAmount += ((float)clockCenti / 100 / 15);                   //CentiSeconds Percentage quadrant related (float Value between 0 and 0.0666666)
-                        if (controller.Count == 0 || clockQuadrant < 0 || clockQuadrant + 1 > controller.Count - 1)
-                            clockQuadrant = 0;  //If controller.Count dosen't match
-                        calculateClockHand = true;                                          //Calculate the new Hand position (Quaternion) below
-                    }
-                    else if (animName.StartsWith("orts_shand_clock")) //Shape matrix is a Second Hand of an analog OR-clock
-                    {
-                        clockQuadrant = (int)clockSecond / 15;                              //Quadrant of the clock / Key-Index of anim_node (int Values: 0, 1, 2, 3)
-                        quadrantAmount = (float)(clockSecond - (clockQuadrant * 15)) / 15;  //Percentage quadrant related (float Value between 0 and 1) 
-                        if (controller.Count == 0 || clockQuadrant < 0 || clockQuadrant + 1 > controller.Count - 1)
-                            clockQuadrant = 0;  //If controller.Count doesn't match
-                        calculateClockHand = true;                                          //Calculate the new Hand position (Quaternion) below
-                    }
-                    else if (animName.StartsWith("orts_mhand_clock")) //Shape matrix is a Minute Hand of an analog OR-clock
-                    {
-                        clockQuadrant = (int)clockMinute / 15;                              //Quadrant of the clock / Key-Index of anim_node (Values: 0, 1, 2, 3)
-                        quadrantAmount = (float)(clockMinute - (clockQuadrant * 15)) / 15;  //Percentage quadrant related (Value between 0 and 1)
-                        if (controller.Count == 0 || clockQuadrant < 0 || clockQuadrant + 1 > controller.Count - 1)
-                            clockQuadrant = 0; //If controller.Count dosen't match
-                        calculateClockHand = true;                                          //Calculate the new Hand position (Quaternion) below
-                    }
-                    else if (animName.StartsWith("orts_hhand_clock")) //Shape matrix is an Hour Hand of an analog OR-clock
-                    {
-                        clockHour %= 12;                                                    //Reduce 24 to 12 format
-                        clockQuadrant = (int)clockHour / 3;                                 //Quadrant of the clock / Key-Index of anim_node (Values: 0, 1, 2, 3)
-                        quadrantAmount = (float)(clockHour - (clockQuadrant * 3)) / 3;      //Percentage quadrant related (Value between 0 and 1)
-                        quadrantAmount += (((float)1 / 3) * ((float)clockMinute / 60));     //add fine minute-percentage for Hour Hand between the full hours
-                        if (controller.Count == 0 || clockQuadrant < 0 || clockQuadrant + 1 > controller.Count - 1)
-                            clockQuadrant = 0; //If controller.Count doesn't match
-                        calculateClockHand = true;                                          //Calculate the new Hand position (Quaternion) below
-                    }
-                    if (calculateClockHand == true & controller.Count > 0)                  //Calculate new Hand position as usual OR-style (Slerp-animation with Quaternions)
-                    {
-                        var position1 = controller[clockQuadrant];
-                        var position2 = controller[clockQuadrant + 1];
-                        if (position1 is slerp_rot sr1 && position2 is slerp_rot sr2)  //OR-Clock anim.node has slerp keys
-                        {
-                            Quaternion XNA1 = new Quaternion(sr1.X, sr1.Y, -sr1.Z, sr1.W);
-                            Quaternion XNA2 = new Quaternion(sr2.X, sr2.Y, -sr2.Z, sr2.W);
-                            Quaternion q = Quaternion.Slerp(XNA1, XNA2, quadrantAmount);
-                            Vector3 location = xnaPose.Translation;
-                            xnaPose = Matrix.CreateFromQuaternion(q);
-                            xnaPose.Translation = location;
-                        }
-                        else if (position1 is linear_key lk1 && position2 is linear_key lk2) //OR-Clock anim.node has tcb keys
-                        {
-                            Vector3 XNA1 = new Vector3(lk1.X, lk1.Y, -lk1.Z);
-                            Vector3 XNA2 = new Vector3(lk2.X, lk2.Y, -lk2.Z);
-                            Vector3 v = Vector3.Lerp(XNA1, XNA2, quadrantAmount);
-                            xnaPose.Translation = v;
-                        }
-                        else if (position1 is tcb_key tk1 && position2 is tcb_key tk2) //OR-Clock anim.node has tcb keys
-                        {
-                            Quaternion XNA1 = new Quaternion(tk1.X, tk1.Y, -tk1.Z, tk1.W);
-                            Quaternion XNA2 = new Quaternion(tk2.X, tk2.Y, -tk2.Z, tk2.W);
-                            Quaternion q = Quaternion.Slerp(XNA1, XNA2, quadrantAmount);
-                            Vector3 location = xnaPose.Translation;
-                            xnaPose = Matrix.CreateFromQuaternion(q);
-                            xnaPose.Translation = location;
-                        }
-                    }
-                }
-            }
-            XNAMatrices[iMatrix] = xnaPose;  // update the matrix
         }
     }
 
@@ -708,14 +583,14 @@ namespace Orts.Viewer3D
                 id = SpeedPostObj.GetTrItemID(idlocation);
             }
             //create the shape primitive
-            var newTList = new short[NumIndices];
-            Array.Copy(TriangleListIndices, newTList, NumIndices);
-            var newVList = new VertexPositionNormalTexture[NumVertices];
-            Array.Copy(VertexList, newVList, NumVertices);
+            short[] newTList = new short[NumIndices];
+            for (i = 0; i < NumIndices; i++) newTList[i] = TriangleListIndices[i];
+            VertexPositionNormalTexture[] newVList = new VertexPositionNormalTexture[NumVertices];
+            for (i = 0; i < NumVertices; i++) newVList[i] = VertexList[i];
             IndexBuffer IndexBuffer = new IndexBuffer(viewer.GraphicsDevice, typeof(short),
                                                             NumIndices, BufferUsage.WriteOnly);
             IndexBuffer.SetData(newTList);
-            shapePrimitive = new ShapePrimitive(material, new SharedShape.VertexBufferSet(newVList, viewer.GraphicsDevice), IndexBuffer, NumIndices / 3, new[] { -1 }, 0);
+            shapePrimitive = new ShapePrimitive(material, new SharedShape.VertexBufferSet(newVList, viewer.GraphicsDevice), IndexBuffer, 0, NumVertices, NumIndices / 3, new[] { -1 }, 0);
 
         }
 
@@ -776,8 +651,8 @@ namespace Orts.Viewer3D
     public class LevelCrossingShape : PoseableShape
     {
         readonly LevelCrossingObj CrossingObj;
-        readonly SoundSource Sound;
-        readonly LevelCrossing Crossing;
+		readonly SoundSource Sound;
+		readonly LevelCrossing Crossing;
 
         readonly float AnimationFrames;
         readonly float AnimationSpeed;
@@ -1196,27 +1071,23 @@ namespace Orts.Viewer3D
 
         public override void PrepareFrame(RenderFrame frame, ElapsedTime elapsedTime)
         {
-            float nextKey;
-            var animation = SharedShape.Animations[0];
             if (Turntable.GoToTarget || Turntable.GoToAutoTarget)
             {
-                nextKey = Turntable.TargetY / (2 * (float)Math.PI) * animation.FrameCount;
+                AnimationKey = (Turntable.TargetY / (float)Math.PI * 1800.0f + 3600) % 3600.0f;
             }
-            else
+
+            else if (Turntable.Counterclockwise)
             {
-                float moveFrames;
-                if (Turntable.Counterclockwise)
-                    moveFrames = animation.FrameRate * elapsedTime.ClockSeconds;
-                else if (Turntable.Clockwise)
-                    moveFrames = -animation.FrameRate * elapsedTime.ClockSeconds;
-                else
-                    moveFrames = 0;
-                nextKey = AnimationKey + moveFrames;
+                AnimationKey += SharedShape.Animations[0].FrameRate * elapsedTime.ClockSeconds;
             }
-            AnimationKey = nextKey % animation.FrameCount;
-            if (AnimationKey < 0)
-                AnimationKey += animation.FrameCount;
-            Turntable.YAngle = MathHelper.WrapAngle(nextKey / animation.FrameCount * 2 * (float)Math.PI);
+            else if (Turntable.Clockwise)
+            {
+                AnimationKey -= SharedShape.Animations[0].FrameRate * elapsedTime.ClockSeconds;
+            }
+            while (AnimationKey > SharedShape.Animations[0].FrameCount) AnimationKey -= SharedShape.Animations[0].FrameCount;
+            while (AnimationKey < 0) AnimationKey += SharedShape.Animations[0].FrameCount;
+
+            Turntable.YAngle = MathHelper.WrapAngle(AnimationKey / 1800.0f * (float)Math.PI);
 
             if ((Turntable.Clockwise || Turntable.Counterclockwise || Turntable.AutoClockwise || Turntable.AutoCounterclockwise) && !Rotating)
             {
@@ -1256,7 +1127,7 @@ namespace Orts.Viewer3D
             : base(viewer, path, initialPosition, flags)
         {
             Transfertable = transfertable;
-            AnimationKey = (Transfertable.OffsetPos - Transfertable.CenterOffsetComponent) / Transfertable.Span * SharedShape.Animations[0].FrameCount;
+            AnimationKey = (Transfertable.XPos - Transfertable.CenterOffset.X)/ Transfertable.Width * SharedShape.Animations[0].FrameCount;
             for (var imatrix = 0; imatrix < SharedShape.Matrices.Length; ++imatrix)
             {
                 if (SharedShape.MatrixNames[imatrix].ToLower() == transfertable.Animations[0].ToLower())
@@ -1299,7 +1170,7 @@ namespace Orts.Viewer3D
         {
             if (Transfertable.GoToTarget)
             {
-                AnimationKey = (Transfertable.TargetOffset - Transfertable.CenterOffsetComponent) / Transfertable.Span * SharedShape.Animations[0].FrameCount;
+                AnimationKey = (Transfertable.TargetX - Transfertable.CenterOffset.X) / Transfertable.Width * SharedShape.Animations[0].FrameCount;
             }
 
             else if (Transfertable.Forward)
@@ -1313,7 +1184,7 @@ namespace Orts.Viewer3D
             if (AnimationKey > SharedShape.Animations[0].FrameCount) AnimationKey = SharedShape.Animations[0].FrameCount;
             if (AnimationKey < 0) AnimationKey = 0;
 
-            Transfertable.OffsetPos = AnimationKey / SharedShape.Animations[0].FrameCount * Transfertable.Span + Transfertable.CenterOffsetComponent;
+            Transfertable.XPos = AnimationKey / SharedShape.Animations[0].FrameCount * Transfertable.Width + Transfertable.CenterOffset.X;
 
             if ((Transfertable.Forward || Transfertable.Reverse) && !Translating)
             {
@@ -1346,28 +1217,33 @@ namespace Orts.Viewer3D
 
         protected internal VertexBuffer VertexBuffer;
         protected internal IndexBuffer IndexBuffer;
+        protected internal int MinVertexIndex;
+        protected internal int NumVerticies;
         protected internal int PrimitiveCount;
-
-        readonly VertexBufferBinding[] VertexBufferBindings;
+        protected internal VertexBufferBinding[] VertexBufferBindings;
 
         public ShapePrimitive()
         {
         }
 
-        public ShapePrimitive(Material material, SharedShape.VertexBufferSet vertexBufferSet, IndexBuffer indexBuffer, int primitiveCount, int[] hierarchy, int hierarchyIndex)
+        public ShapePrimitive(Material material, SharedShape.VertexBufferSet vertexBufferSet, IndexBuffer indexBuffer, int minVertexIndex, int numVerticies, int primitiveCount, int[] hierarchy, int hierarchyIndex)
         {
             Material = material;
             VertexBuffer = vertexBufferSet.Buffer;
             IndexBuffer = indexBuffer;
+            MinVertexIndex = minVertexIndex;
+            NumVerticies = numVerticies;
             PrimitiveCount = primitiveCount;
             Hierarchy = hierarchy;
             HierarchyIndex = hierarchyIndex;
 
-            VertexBufferBindings = new[] { new VertexBufferBinding(VertexBuffer), new VertexBufferBinding(GetDummyVertexBuffer(material.Viewer.GraphicsDevice)) };
+            DummyVertexBuffer = new VertexBuffer(material.Viewer.GraphicsDevice, DummyVertexDeclaration, 1, BufferUsage.WriteOnly);
+            DummyVertexBuffer.SetData(DummyVertexData);
+            VertexBufferBindings = new[] { new VertexBufferBinding(VertexBuffer), new VertexBufferBinding(DummyVertexBuffer) };
         }
 
-        public ShapePrimitive(Material material, SharedShape.VertexBufferSet vertexBufferSet, IList<ushort> indexData, GraphicsDevice graphicsDevice, int[] hierarchy, int hierarchyIndex)
-            : this(material, vertexBufferSet, null, indexData.Count / 3, hierarchy, hierarchyIndex)
+        public ShapePrimitive(Material material, SharedShape.VertexBufferSet vertexBufferSet, List<ushort> indexData, GraphicsDevice graphicsDevice, int[] hierarchy, int hierarchyIndex)
+            : this(material, vertexBufferSet, null, indexData.Min(), indexData.Max() - indexData.Min() + 1, indexData.Count / 3, hierarchy, hierarchyIndex)
         {
             IndexBuffer = new IndexBuffer(graphicsDevice, typeof(short), indexData.Count, BufferUsage.WriteOnly);
             IndexBuffer.SetData(indexData.ToArray());
@@ -1380,7 +1256,7 @@ namespace Orts.Viewer3D
                 // TODO consider sorting by Vertex set so we can reduce the number of SetSources required.
                 graphicsDevice.SetVertexBuffers(VertexBufferBindings);
                 graphicsDevice.Indices = IndexBuffer;
-                graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, baseVertex: 0, startIndex: 0, primitiveCount: PrimitiveCount);
+                graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, MinVertexIndex, NumVerticies, 0, PrimitiveCount);
             }
         }
 
@@ -1388,35 +1264,6 @@ namespace Orts.Viewer3D
         public virtual void Mark()
         {
             Material.Mark();
-        }
-    }
-
-    /// <summary>
-    /// A <c>ShapePrimitive</c> that permits manipulation of the vertex and index buffers to change geometry efficiently.
-    /// </summary>
-    public class MutableShapePrimitive : ShapePrimitive
-    {
-        /// <remarks>
-        /// Buffers cannot be expanded, so take care to properly set <paramref name="maxVertices"/> and <paramref name="maxIndices"/>,
-        /// which define the maximum sizes of the vertex and index buffers, respectively.
-        /// </remarks>
-        public MutableShapePrimitive(Material material, int maxVertices, int maxIndices, int[] hierarchy, int hierarchyIndex)
-            : base(material: material,
-                   vertexBufferSet: new SharedShape.VertexBufferSet(new VertexPositionNormalTexture[maxVertices], material.Viewer.GraphicsDevice),
-                   indexData: new ushort[maxIndices],
-                   graphicsDevice: material.Viewer.GraphicsDevice,
-                   hierarchy: hierarchy,
-                   hierarchyIndex: hierarchyIndex) { }
-
-        public void SetVertexData(VertexPositionNormalTexture[] data, int minVertexIndex, int numVertices, int primitiveCount)
-        {
-            VertexBuffer.SetData(data);
-            PrimitiveCount = primitiveCount;
-        }
-
-        public void SetIndexData(short[] data)
-        {
-            IndexBuffer.SetData(data);
         }
     }
 
@@ -1447,14 +1294,15 @@ namespace Orts.Viewer3D
         protected VertexDeclaration VertexDeclaration;
         protected int VertexBufferStride;
         protected IndexBuffer IndexBuffer;
+        protected int MinVertexIndex;
+        protected int NumVerticies;
         protected int PrimitiveCount;
 
         protected VertexBuffer InstanceBuffer;
         protected VertexDeclaration InstanceDeclaration;
         protected int InstanceBufferStride;
         protected int InstanceCount;
-
-        readonly VertexBufferBinding[] VertexBufferBindings;
+        protected VertexBufferBinding[] VertexBufferBindings;
 
         internal ShapePrimitiveInstances(GraphicsDevice graphicsDevice, ShapePrimitive shapePrimitive, Matrix[] positions, int subObjectIndex)
         {
@@ -1465,6 +1313,8 @@ namespace Orts.Viewer3D
             VertexBuffer = shapePrimitive.VertexBuffer;
             VertexDeclaration = shapePrimitive.VertexBuffer.VertexDeclaration;
             IndexBuffer = shapePrimitive.IndexBuffer;
+            MinVertexIndex = shapePrimitive.MinVertexIndex;
+            NumVerticies = shapePrimitive.NumVerticies;
             PrimitiveCount = shapePrimitive.PrimitiveCount;
 
             InstanceDeclaration = new VertexDeclaration(ShapeInstanceData.SizeInBytes, ShapeInstanceData.VertexElements);
@@ -1479,7 +1329,7 @@ namespace Orts.Viewer3D
         {
             graphicsDevice.Indices = IndexBuffer;
             graphicsDevice.SetVertexBuffers(VertexBufferBindings);
-            graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, baseVertex: 0, startIndex: 0, PrimitiveCount, InstanceCount);
+            graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, MinVertexIndex, NumVerticies, 0, PrimitiveCount, InstanceCount);
         }
     }
 
@@ -1725,7 +1575,6 @@ namespace Orts.Viewer3D
                 SceneryMaterialOptions.TextureAddressModeWrap,
                 SceneryMaterialOptions.TextureAddressModeMirror,
                 SceneryMaterialOptions.TextureAddressModeClamp,
-                SceneryMaterialOptions.TextureAddressModeBorder,
             };
 
             static readonly Dictionary<string, SceneryMaterialOptions> ShaderNames = new Dictionary<string, SceneryMaterialOptions> {

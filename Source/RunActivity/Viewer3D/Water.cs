@@ -53,7 +53,9 @@ namespace Orts.Viewer3D
   
             LoadGeometry(Viewer.GraphicsDevice, tile, out PrimitiveCount, out IndexBuffer, out VertexBuffer);
 
-            VertexBufferBindings = new[] { new VertexBufferBinding(VertexBuffer), new VertexBufferBinding(GetDummyVertexBuffer(viewer.GraphicsDevice)) };
+            DummyVertexBuffer = new VertexBuffer(Viewer.GraphicsDevice, DummyVertexDeclaration, 1, BufferUsage.WriteOnly);
+            DummyVertexBuffer.SetData(new Matrix[] { Matrix.Identity });
+            VertexBufferBindings = new[] { new VertexBufferBinding(VertexBuffer), new VertexBufferBinding(DummyVertexBuffer) };
         }
 
         [CallOnThread("Updater")]
@@ -79,7 +81,7 @@ namespace Orts.Viewer3D
         {
             graphicsDevice.Indices = IndexBuffer;
             graphicsDevice.SetVertexBuffers(VertexBufferBindings);
-            graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, baseVertex: 0, startIndex: 0, PrimitiveCount);
+            graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 17 * 17, 0, PrimitiveCount);
         }
 
         void LoadGeometry(GraphicsDevice graphicsDevice, Tile tile, out int primitiveCount, out IndexBuffer indexBuffer, out VertexBuffer vertexBuffer)
@@ -173,9 +175,8 @@ namespace Orts.Viewer3D
         public override void SetState(GraphicsDevice graphicsDevice, Material previousMaterial)
         {
             var shader = Viewer.MaterialManager.SceneryShader;
-            var level9_3 = Viewer.Settings.IsDirectXFeatureLevelIncluded(ORTS.Settings.UserSettings.DirectXFeature.Level9_3);
-            shader.CurrentTechnique = shader.Techniques[level9_3 ? "ImageLevel9_3" : "ImageLevel9_1"];
-            if (ShaderPasses == null) ShaderPasses = shader.Techniques[level9_3 ? "ImageLevel9_3" : "ImageLevel9_1"].Passes.GetEnumerator();
+            shader.CurrentTechnique = shader.Techniques["ImagePS"];
+            if (ShaderPasses == null) ShaderPasses = shader.Techniques["ImagePS"].Passes.GetEnumerator();
             shader.ImageTexture = WaterTexture;
             shader.ReferenceAlpha = 10;
 

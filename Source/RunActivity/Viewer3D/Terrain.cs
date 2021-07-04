@@ -245,7 +245,9 @@ namespace Orts.Viewer3D
             Tile = null;
             Patch = null;
 
-            VertexBufferBindings = new[] { new VertexBufferBinding(PatchVertexBuffer), new VertexBufferBinding(GetDummyVertexBuffer(viewer.GraphicsDevice)) };
+            DummyVertexBuffer = new VertexBuffer(viewer.GraphicsDevice, DummyVertexDeclaration, 1, BufferUsage.WriteOnly);
+            DummyVertexBuffer.SetData(DummyVertexData);
+            VertexBufferBindings = new[] { new VertexBufferBinding(PatchVertexBuffer), new VertexBufferBinding(DummyVertexBuffer) };
         }
 
         [CallOnThread("Updater")]
@@ -265,7 +267,7 @@ namespace Orts.Viewer3D
             graphicsDevice.SetVertexBuffers(VertexBufferBindings);
             if (PatchIndexBuffer != null)
                 graphicsDevice.Indices = PatchIndexBuffer;
-            graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, baseVertex: 0, startIndex: 0, PatchPrimitiveCount);
+            graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 17 * 17, 0, PatchPrimitiveCount);
         }
 
         float Elevation(int x, int z)
@@ -500,7 +502,7 @@ namespace Orts.Viewer3D
     {
         readonly Texture2D PatchTexture;
         readonly Texture2D PatchTextureOverlay;
-        readonly float OverlayScale;
+        readonly int OverlayScale;
         IEnumerator<EffectPass> ShaderPasses;
 
         public TerrainMaterial(Viewer viewer, string terrainTexture, Texture2D defaultTexture)
@@ -509,7 +511,7 @@ namespace Orts.Viewer3D
             var textures = terrainTexture.Split('\0');
             PatchTexture = Viewer.TextureManager.Get(textures[0], defaultTexture);
             PatchTextureOverlay = textures.Length > 1 ? Viewer.TextureManager.Get(textures[1]) : null;
-            var converted = textures.Length > 2 && float.TryParse(textures[2], out OverlayScale);
+            var converted = textures.Length > 2 && Int32.TryParse(textures[2], out OverlayScale);
             OverlayScale = OverlayScale != 0 && converted ?  OverlayScale : 32; 
 
         }
@@ -517,9 +519,8 @@ namespace Orts.Viewer3D
         public override void SetState(GraphicsDevice graphicsDevice, Material previousMaterial)
         {
             var shader = Viewer.MaterialManager.SceneryShader;
-            var level9_3 = Viewer.Settings.IsDirectXFeatureLevelIncluded(ORTS.Settings.UserSettings.DirectXFeature.Level9_3);
-            shader.CurrentTechnique = shader.Techniques[level9_3 ? "TerrainLevel9_3" : "TerrainLevel9_1"];
-            if (ShaderPasses == null) ShaderPasses = shader.Techniques[level9_3 ? "TerrainLevel9_3" : "TerrainLevel9_1"].Passes.GetEnumerator();
+            shader.CurrentTechnique = shader.Techniques["TerrainPS"];
+            if (ShaderPasses == null) ShaderPasses = shader.Techniques["TerrainPS"].Passes.GetEnumerator();
             shader.ImageTexture = PatchTexture;
             shader.OverlayTexture = PatchTextureOverlay;
             shader.OverlayScale = OverlayScale;

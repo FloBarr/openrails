@@ -1,4 +1,4 @@
-﻿using Orts.Common;
+using Orts.Common;
 using Orts.Parsers.Msts;
 using Orts.Simulation.RollingStocks.SubSystems.PowerSupplies;
 using ORTS.Common;
@@ -407,7 +407,7 @@ namespace Orts.Simulation.RollingStocks.SubSystems.PowerTransmissions
         public float ElapsedTimeForSpeedChanging;
         public bool SpeedChanging;
 
-        public float TractiveForceN
+        public float MotiveForceN
         {
             get
             {

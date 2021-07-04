@@ -19,22 +19,21 @@
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Orts.Formats.Msts;
 using Orts.Simulation.RollingStocks;
 using Orts.Viewer3D.Popups;
+using Orts.Viewer3D.RollingStock;
 using ORTS.Common;
-using ORTS.Scripting.Api.ETCS;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using static Orts.Viewer3D.RollingStock.Subsystems.ETCS.DriverMachineInterface;
 
-namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
+namespace Orts.Viewer3D
 {
-    // Compliant with ERA_ERTMS_015560 version 3.6.0 (ETCS DRIVER MACHINE INTERFACE)
-    public class CircularSpeedGauge : DMIArea
+    public class CircularSpeedGauge
     {
         // These constants are from ETCS specification
-        readonly float NoGaugeAngle = MathHelper.ToRadians(-150); // Special angle when gauge must not be shown
+        const int Width = 280;
+        const int Height = 300;
         readonly float StartAngle = MathHelper.ToRadians(-144);
         readonly float EndAngle = MathHelper.ToRadians(144);
         readonly float MidAngle = MathHelper.ToRadians(48);
@@ -46,7 +45,7 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
         const float FontHeightDial = 16;
         const float FontHeightReleaseSpeed = 17;
         const float FontHeightCurrentSpeed = 18;
-
+        
         const int LineQuarter = 11;
         const int RadiusText = 99;
         readonly int[] CurrentSpeedPosition = new int[] { 150, 135, 120, 137 }; // x 10^0, x 10^1, x 10^2, y
@@ -56,9 +55,19 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
         readonly int[] StandardScalesKMpH = new int[] { 140, 180, 240, 250, 260, 400 };
         readonly int[] StandardScalesMpH = new int[] { 87, 111, 155, 248 };
 
+        // Color RGB values are from ETCS specification
+        readonly Color ColorGrey = new Color(195, 195, 195);
+        readonly Color ColorMediumGrey = new Color(150, 150, 150);
+        readonly Color ColorDarkGrey = new Color(85, 85, 85);
+        readonly Color ColorYellow = new Color(223, 223, 0);
+        readonly Color ColorOrange = new Color(234, 145, 0);
+        readonly Color ColorRed = new Color(191, 0, 2);
+        //readonly Color ColorDarkYellow = new Color(105, 105, 0);
+        //readonly Color ColorBackground = new Color(3, 17, 34); // dark blue
+        
         const string UnitMetricString = "km/h";
         const string UnitImperialString = "mph";
-
+        
         // Some national railways specify the unit (km/h or mph) is to be shown on dial, in contrast to ETA.
         bool UnitVisible;
         bool UnitMetric;
@@ -67,7 +76,7 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
         // Some national railways specify the scale lines and numbers above a certain limit not to be visible
         int MaxVisibleScale;
         int[] StandardScales;
-
+        
         float MidSpeed;
         string Unit;
 
@@ -76,6 +85,12 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
         Color SpeedColor;
         static Color[] NeedleTextureData;
 
+        readonly DriverMachineInterfaceShader Shader;
+        readonly CabShader cabShader;
+        readonly Viewer Viewer;
+        MSTSLocomotive Locomotive;
+
+        Texture2D ColorTexture;
         Texture2D NeedleTexture;
 
         bool Active; // Trying to fix thread safety issue in SetRange() with this
@@ -93,30 +108,39 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
         WindowTextFont FontReleaseSpeed;
         WindowTextFont FontCurrentSpeed;
 
-        public CircularSpeedGauge(int maxSpeed, bool unitMetric, bool unitVisible, bool dialQuarterLines, int maxVisibleScale, DriverMachineInterface dmi) : base(dmi, 280, 300)
+        readonly Rectangle SourceRectangle = new Rectangle(0, 0, Width, Height);
+        public float Scale { get; private set; }
+        
+        public CircularSpeedGauge(int width, int height, int maxSpeed, bool unitMetric, bool unitVisible, bool dialQuarterLines, int maxVisibleScale,
+            MSTSLocomotive locomotive, Viewer viewer, CabShader shader)
         {
             UnitVisible = unitVisible;
             SetUnit(unitMetric);
-
+            
             DialQuarterLines = dialQuarterLines;
             MaxSpeed = maxSpeed;
             MaxVisibleScale = maxVisibleScale;
-
+            Viewer = viewer;
+            Locomotive = locomotive;
+            cabShader = shader;
+            
+            SizeTo(width, height);
             SetRange(MaxSpeed);
 
             CurrentSpeed = new TextPrimitive[3];
-            foreach (int i in Enumerable.Range(0, CurrentSpeed.Length))
+            for (var i = 0; i < CurrentSpeed.Length; i++)
                 CurrentSpeed[i] = new TextPrimitive(new Point(CurrentSpeedPosition[i], CurrentSpeedPosition[3]), Color.Black, "0", FontCurrentSpeed);
 
             ReleaseSpeed = new TextPrimitive(ReleaseSpeedPosition, ColorGrey, String.Empty, FontReleaseSpeed);
 
+            Shader = new DriverMachineInterfaceShader(Viewer.GraphicsDevice);
             if (NeedleTextureData == null)
             {
                 NeedleTextureData = new Color[128 * 16];
 
                 // Needle texture is according to ETCS specification
-                foreach (int v in Enumerable.Range(0, 128))
-                    foreach (int u in Enumerable.Range(0, 16))
+                for (var v = 0; v < 128; v++)
+                    for (var u = 0; u < 16; u++)
                         NeedleTextureData[u + 16 * v] = (
                             v <= 15 && 5 < u && u < 9
                             || 15 < v && v <= 23 && 5f - (float)(v - 15) / 8f * 3f < u && u < 9f + (float)(v - 15) / 8f * 3f
@@ -124,7 +148,7 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
                         ) ? Color.White : Color.Transparent;
             }
         }
-
+        
         /// <summary>
         /// Select the actual unit of measure for speed
         /// </summary>
@@ -147,15 +171,15 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
                 StandardScales = StandardScalesMpH;
             }
         }
-        public override void ScaleChanged()
+        
+        /// <summary>
+        /// Set new font heights to match the actual scale.
+        /// </summary>
+        public void SetFont()
         {
-            SetFont();
-        }
-        void SetFont()
-        {
-            FontDialSpeeds = GetFont(FontHeightDial, true);
-            FontReleaseSpeed = GetFont(FontHeightReleaseSpeed);
-            FontCurrentSpeed = GetFont(FontHeightCurrentSpeed, true);
+            FontDialSpeeds = Viewer.WindowManager.TextManager.GetExact("Arial", FontHeightDial * Scale, System.Drawing.FontStyle.Bold);
+            FontReleaseSpeed = Viewer.WindowManager.TextManager.GetExact("Arial", FontHeightReleaseSpeed * Scale, System.Drawing.FontStyle.Regular);
+            FontCurrentSpeed = Viewer.WindowManager.TextManager.GetExact("Arial", FontHeightCurrentSpeed * Scale, System.Drawing.FontStyle.Bold);
 
             foreach (var text in DialSpeeds)
                 text.Font = FontDialSpeeds;
@@ -164,6 +188,16 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
             if (CurrentSpeed != null)
                 foreach (var text in CurrentSpeed)
                     text.Font = FontCurrentSpeed;
+        }
+
+        /// <summary>
+        /// Resize control to fit into a new rectangle, by keeping aspect ratio.
+        /// </summary>
+        /// <param name="width">New width of control.</param>
+        /// <param name="height">New height of control.</param>
+        public void SizeTo(int width, int height)
+        {
+            Scale = Math.Min((float)height / Height, (float)width / Width);
         }
 
         /// <summary>
@@ -195,7 +229,7 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
             DialLineCoords = new List<Vector4>();
             DialSpeeds = new List<TextPrimitive>();
 
-            ScaleChanged();
+            SetFont();
 
             var longLine = 0;
             var textHeight = (float)FontDialSpeeds.Height / Scale;
@@ -212,7 +246,7 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
                     {
                         DialLineCoords.Add(new Vector4(x, y, LineFull, angle + MathHelper.PiOver2));
 
-                        if (MaxSpeed != StandardScales[StandardScales.Length - 1] || speed < MidSpeed
+                        if (MaxSpeed != StandardScales[StandardScales.Length - 1] || speed < MidSpeed 
                             || UnitMetric && speed % 100 == 0
                             || !UnitMetric && speed % 40 == 0)
                         {
@@ -234,7 +268,7 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
                     }
                     else
                         DialLineCoords.Add(new Vector4(x, y, LineHalf, angle + MathHelper.PiOver2));
-
+                    
                     longLine++;
                     longLine %= MaxSpeed != StandardScales[StandardScales.Length - 1] ? 2 : UnitMetric ? 5 : (speed + 5 > MidSpeed) ? 4 : 2;
                 }
@@ -243,12 +277,13 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
                     DialLineCoords.Add(new Vector4(x, y, LineQuarter, angle + MathHelper.PiOver2));
                 }
             }
-
+            
             if (Unit != "")
             {
                 var unitPosition = new Point((int)(UnitCenterPosition[0] - FontDialSpeeds.MeasureString(Unit) / Scale / 2f), (int)(UnitCenterPosition[1] - textHeight / 2f));
                 DialSpeeds.Add(new TextPrimitive(unitPosition, Color.White, Unit, FontDialSpeeds));
             }
+            
             Active = true;
         }
 
@@ -277,89 +312,28 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
             y = -(float)(radius * Math.Cos(angle) - Height / 2);
         }
 
-        private void SetData(ETCSStatus status)
+        private void SetData(float currentSpeed, int permittedSpeed, int targetSpeed, int releaseSpeed, float interventionSpeed, ORTS.Scripting.Api.MonitoringStatus status)
         {
-            if (!Active || !status.SpeedAreaShown) return;
-            float currentSpeed = Math.Abs(SpeedFromMpS(DMI.Locomotive.SpeedMpS));
-            int permittedSpeed = (int)SpeedFromMpS(status.AllowedSpeedMpS);
-            int targetSpeed = status.TargetSpeedMpS < status.AllowedSpeedMpS ? (int)SpeedFromMpS(status.TargetSpeedMpS.Value) : permittedSpeed;
-            int releaseSpeed = (int)SpeedFromMpS(status.ReleaseSpeedMpS ?? 0);
-            float interventionSpeed = SpeedFromMpS(status.InterventionSpeedMpS);
-
-            if (interventionSpeed < permittedSpeed && interventionSpeed < releaseSpeed)
-                interventionSpeed = Math.Max(permittedSpeed, releaseSpeed);
+            if (interventionSpeed < permittedSpeed)
+                interventionSpeed = permittedSpeed;
             if (currentSpeed > permittedSpeed && currentSpeed > interventionSpeed)
-                interventionSpeed = Math.Max(currentSpeed - 1, releaseSpeed);
+                interventionSpeed = currentSpeed - 1;
 
-            switch (status.CurrentMode)
+            switch (status)
             {
-                case Mode.SB:
-                case Mode.NL:
-                case Mode.PT:
-                    NeedleColor = ColorGrey;
-                    break;
-                case Mode.TR:
-                    NeedleColor = ColorRed;
-                    break;
-                case Mode.SH:
-                case Mode.RV:
-                    if (currentSpeed <= permittedSpeed)
-                        NeedleColor = ColorGrey;
-                    else
-                        NeedleColor = status.CurrentSupervisionStatus == SupervisionStatus.Intervention ? ColorRed : ColorOrange;
-                    break;
-                case Mode.SR:
-                case Mode.UN:
-                    if (currentSpeed > permittedSpeed)
-                        NeedleColor = status.CurrentSupervisionStatus == SupervisionStatus.Intervention ? ColorRed : ColorOrange;
-                    else if (status.CurrentMonitor == Monitor.TargetSpeed)
-                        NeedleColor = currentSpeed < targetSpeed ? ColorGrey : ColorYellow;
-                    else if (targetSpeed < permittedSpeed && currentSpeed >= targetSpeed)
-                        NeedleColor = Color.White;
-                    else
-                        NeedleColor = ColorGrey;
-                    break;
-                case Mode.LS:
-                    if (currentSpeed > permittedSpeed)
-                        NeedleColor = status.CurrentSupervisionStatus == SupervisionStatus.Intervention ? ColorRed : ColorOrange;
-                    else if (status.CurrentMonitor == Monitor.ReleaseSpeed)
-                        NeedleColor = ColorYellow;
-                    else
-                        NeedleColor = ColorGrey;
-                    break;
-                case Mode.FS:
-                case Mode.OS:
-                    if (currentSpeed > permittedSpeed)
-                        NeedleColor = status.CurrentSupervisionStatus == SupervisionStatus.Intervention ? ColorRed : ColorOrange;
-                    else if (status.CurrentMonitor == Monitor.TargetSpeed || status.CurrentMonitor == Monitor.ReleaseSpeed)
-                        NeedleColor = currentSpeed < targetSpeed ? ColorGrey : ColorYellow;
-                    else if (targetSpeed < permittedSpeed && currentSpeed >= targetSpeed)
-                        NeedleColor = Color.White;
-                    else
-                        NeedleColor = ColorGrey;
-                    break;
-                case Mode.SN:
-                    // TODO: Allow direct management of colors from STM
-                    break;
-            }
-            SpeedColor = NeedleColor == ColorRed ? Color.White : Color.Black;
-            if (status.CurrentMode == Mode.FS)
-            {
-                GaugeColor = status.CurrentMonitor == Monitor.TargetSpeed || status.CurrentMonitor == Monitor.ReleaseSpeed ? ColorYellow : Color.White;
-                if (status.CurrentSupervisionStatus != SupervisionStatus.Overspeed && status.CurrentSupervisionStatus != SupervisionStatus.Warning && status.CurrentSupervisionStatus != SupervisionStatus.Intervention)
-                    interventionSpeed = Math.Max(releaseSpeed, permittedSpeed);
-
-                var shaderAngles = new Vector4(Speed2Angle(targetSpeed), Speed2Angle(permittedSpeed), Speed2Angle(interventionSpeed), Speed2Angle(releaseSpeed));
-                DMI.Shader.SetData(shaderAngles, GaugeColor, NeedleColor, status.CurrentSupervisionStatus == SupervisionStatus.Intervention ? ColorRed : ColorOrange);
-            }
-            else
-            {
-                // CSG not shown
-                var shaderAngles = new Vector4(NoGaugeAngle, NoGaugeAngle, NoGaugeAngle, NoGaugeAngle);
-                DMI.Shader.SetData(shaderAngles, GaugeColor, NeedleColor, GaugeColor);
+                case ORTS.Scripting.Api.MonitoringStatus.Normal:
+                    GaugeColor = targetSpeed < permittedSpeed ? Color.White : ColorDarkGrey;
+                    NeedleColor = ColorMediumGrey; SpeedColor = Color.Black; releaseSpeed = 0; interventionSpeed = permittedSpeed; break;
+                case ORTS.Scripting.Api.MonitoringStatus.Indication: GaugeColor = NeedleColor = Color.White; SpeedColor = Color.Black; interventionSpeed = permittedSpeed; break;
+                case ORTS.Scripting.Api.MonitoringStatus.Overspeed: GaugeColor = NeedleColor = ColorYellow; SpeedColor = Color.Black; interventionSpeed = permittedSpeed; break;
+                case ORTS.Scripting.Api.MonitoringStatus.Warning: GaugeColor = ColorYellow; NeedleColor = ColorOrange; SpeedColor = Color.Black; break;
+                case ORTS.Scripting.Api.MonitoringStatus.Intervention: GaugeColor = ColorYellow; NeedleColor = ColorRed; SpeedColor = Color.White; break;
             }
 
             CurrentSpeedAngle = Speed2Angle(currentSpeed);
+
+            var shaderAngles = new Vector4(Speed2Angle(targetSpeed), Speed2Angle(permittedSpeed), Speed2Angle(interventionSpeed), Speed2Angle(releaseSpeed));
+            Shader.SetData(shaderAngles, GaugeColor, NeedleColor);
 
             SpeedText = (int)(currentSpeed + (currentSpeed < 1f || currentSpeed < (float)SpeedText ? 0.99999f : 0.49999f));
 
@@ -372,13 +346,19 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
             ReleaseSpeed.Text = releaseSpeed > 0 ? releaseSpeed.ToString() : String.Empty;
         }
 
-        public override void PrepareFrame(ETCSStatus status)
+        public void PrepareFrame()
         {
-            SetData(status);
+            var tcs = Locomotive.TrainControlSystem;
+            SetData(Math.Abs(SpeedFromMpS(Locomotive.SpeedMpS)), (int)SpeedFromMpS(tcs.CurrentSpeedLimitMpS), (int)SpeedFromMpS(tcs.NextSpeedLimitMpS), 0, SpeedFromMpS(tcs.InterventionSpeedLimitMpS), tcs.MonitoringStatus);
         }
 
-        public override void Draw(SpriteBatch spriteBatch, Point position)
+        public void Draw(SpriteBatch spriteBatch, Point position)
         {
+            if (ColorTexture == null)
+            {
+                ColorTexture = new Texture2D(spriteBatch.GraphicsDevice, 1, 1);
+                ColorTexture.SetData(new[] { Color.White });
+            }
             if (NeedleTexture == null)
             {
                 NeedleTexture = new Texture2D(spriteBatch.GraphicsDevice, 16, 128);
@@ -386,32 +366,41 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
             }
 
             if (!Active) return;
-            base.Draw(spriteBatch, position);
-
-            int x, y;
             
+            int x = 0, y = 0;
+
             foreach (var lines in DialLineCoords)
             {
                 x = position.X + (int)(lines.X * Scale);
                 y = position.Y + (int)(lines.Y * Scale);
-//                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
 
                 var length = (int)(lines.Z * Scale);
                 spriteBatch.Draw(ColorTexture, new Rectangle(x, y, length, 1), null, Color.White, lines.W, new Vector2(0, 0), SpriteEffects.None, 0);
             }
 
-            // Apply circular speed gauge shader
-            spriteBatch.End();
-            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, null, DepthStencilState.Default, null, DMI.Shader);
+            // Monogame Spritebatch change Shaders procedure.
+            // Following spriteBatch.Begin statements must reflect those for CabSpriteBatchMaterial in materials.cs
 
+            // Apply DriverMachineInterface Shader
+
+            spriteBatch.End();
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, null, DepthStencilState.Default, null, Shader);
+            
             // Draw gauge needle centre and speed limit markings
 
-            spriteBatch.Draw(ColorTexture, new Vector2(position.X, position.Y), new Rectangle(0, 0, Width, Height), Color.Transparent, 0, new Vector2(0, 0), Scale, SpriteEffects.None, 0);
+            spriteBatch.Draw(ColorTexture, new Vector2(position.X, position.Y), SourceRectangle, Color.Transparent, 0, new Vector2(0, 0), Scale, SpriteEffects.None, 0);
 
-            // Re-apply DMI shader
+            // Re-apply normal Cab lighting Shader
+
             spriteBatch.End();
-            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, SamplerState.LinearWrap, DepthStencilState.Default, null, null);
+            if (cabShader != null)
+                spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, null, DepthStencilState.Default, null, cabShader);
+            else
+                spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, null, DepthStencilState.Default, null ,null);
 
+            spriteBatch.Draw(ColorTexture, new Vector2(position.X, position.Y), SourceRectangle, Color.Transparent, 0, new Vector2(0, 0), Scale, SpriteEffects.None, 0);
+            
             // End of spritebatch change Shaders
 
             foreach (var text in DialSpeeds)
@@ -419,7 +408,7 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
                 x = position.X + (int)(text.Position.X * Scale);
                 y = position.Y + (int)(text.Position.Y * Scale);
 
-//                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
 
                 text.Draw(spriteBatch, new Point(x, y));
             }
@@ -427,7 +416,7 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
             x = position.X + (int)(Width * Scale / 2f);
             y = position.Y + (int)(Height * Scale / 2f);
 
-//            y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+            y += (int)(Locomotive.VibrationTranslationM.Y * 100);
 
             spriteBatch.Draw(NeedleTexture, new Vector2(x, y), null, NeedleColor, CurrentSpeedAngle, new Vector2(8, 105), Scale, SpriteEffects.None, 0);
 
@@ -438,7 +427,7 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
                 x = position.X + (int)(text.Position.X * Scale);
                 y = position.Y + (int)(text.Position.Y * Scale);
                 
-//                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
 
                 text.Draw(spriteBatch, new Point(x, y));
             }
@@ -448,135 +437,139 @@ namespace Orts.Viewer3D.RollingStock.Subsystems.ETCS
                 x = position.X + (int)(ReleaseSpeed.Position.X * Scale);
                 y = position.Y + (int)(ReleaseSpeed.Position.Y * Scale);
                 
-//                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
+                y += (int)(Locomotive.VibrationTranslationM.Y * 100);
 
                 ReleaseSpeed.Draw(spriteBatch, new Point(x, y));
             }
         }
-    }
-    public class TTIandLSSMArea : DMIArea
-    {
-        int TTIWidth;
-        Color TTIColor;
-        const int T_dispTTI = 14;
-        public TTIandLSSMArea(DriverMachineInterface dmi) : base(dmi, 54, 54)
-        {
 
-        }
-        public override void PrepareFrame(ETCSStatus status)
+        private class TextPrimitive
         {
-            TTIWidth = 0;
-            float? tti = null;
-            if (status.TimeToIndicationS.HasValue)
+            public Point Position;
+            public Color Color;
+            public WindowTextFont Font;
+            public string Text;
+
+            public TextPrimitive(Point position, Color color, string text, WindowTextFont font)
             {
-                TTIColor = Color.White;
-                tti = status.TimeToIndicationS;
+                Position = position;
+                Color = color;
+                Text = text;
+                Font = font;
             }
-            if (status.TimeToPermittedS.HasValue)
+
+            public void Draw(SpriteBatch spriteBatch, Point position)
             {
-                switch (status.CurrentSupervisionStatus)
-                {
-                    case SupervisionStatus.Intervention:
-                        TTIColor = ColorRed;
-                        break;
-                    case SupervisionStatus.Warning:
-                    case SupervisionStatus.Overspeed:
-                        TTIColor = ColorOrange;
-                        break;
-                    default:
-                        TTIColor = ColorYellow;
-                        break;
-                }
-                tti = status.TimeToPermittedS;
-            }
-            if (tti.HasValue)
-            {
-                foreach (int n in Enumerable.Range(1, 10))
-                {
-                    if (T_dispTTI * (10 - n) / 10f <= tti && tti < T_dispTTI * (10 - (n - 1)) / 10f)
-                    {
-                        TTIWidth = 5 * n;
-                        break;
-                    }
-                }
-            }
-        }
-        public override void Draw(SpriteBatch spriteBatch, Point drawPosition)
-        {
-            base.Draw(spriteBatch, drawPosition);
-            if (TTIWidth > 0)
-            {
-                if (TTIColor == Color.White) DrawRectangle(spriteBatch, drawPosition, 0, 0, 54, 54, ColorDarkGrey);
-                DrawRectangle(spriteBatch, drawPosition, (54 - TTIWidth) / 2, (54 - TTIWidth) / 2, TTIWidth, TTIWidth, TTIColor);
+                Font.Draw(spriteBatch, position, Text, Color);
             }
         }
     }
-    public class TargetDistance : DMIArea
+
+    /// <summary>
+    /// Wrapper class for CircularSpeedGauge, to display it as UI window control.
+    /// </summary>
+    public class CircularSpeedGaugeControl : Control
     {
-        readonly int[] DistanceLinePositionsY = { -1, 6, 13, 22, 32, 45, 59, 79, 105, 152, 185 };
-        readonly int[] DistanceLinePositionsX = { 12, 16, 16, 16, 16, 12, 16, 16, 16, 16, 12 };
-        bool DisplayDistanceText;
-        bool DisplayDistanceBar;
-        Vector4 DistanceBar;
-        TextPrimitive TargetDistanceText;
-        WindowTextFont TargetDistanceFont;
-        readonly float FontHeightTargetDistance = 10;
-        public TargetDistance(DriverMachineInterface dmi) : base(dmi, 54, 221)
-        {
-            ScaleChanged();
-        }
-        public override void Draw(SpriteBatch spriteBatch, Point position)
-        {
-            base.Draw(spriteBatch, position);
-            if (DisplayDistanceBar)
-            {
-                DrawRectangle(spriteBatch, position, DistanceBar.X, DistanceBar.Y + 30, DistanceBar.Z, DistanceBar.W, ColorGrey);
+        public readonly CircularSpeedGauge CircularSpeedGauge;
 
-                // Distance speed lines
-                foreach (int i in Enumerable.Range(0, 11))
-                    DrawIntRectangle(spriteBatch, position, DistanceLinePositionsX[i], DistanceLinePositionsY[i] + 30, 25 - DistanceLinePositionsX[i], (int)Math.Max(1, 1 / Scale), ColorGrey);
-            }
-            if (DisplayDistanceText)
-            {
-                int x = position.X + (int)Math.Round(TargetDistanceText.Position.X * Scale);
-                int y = position.Y + (int)Math.Round((TargetDistanceText.Position.Y + 54) * Scale);
-                TargetDistanceText.Draw(spriteBatch, new Point(x, y));
-            }
-        }
-        public override void PrepareFrame(ETCSStatus status)
+        public CircularSpeedGaugeControl(int width, int height, float maxSpeedMpS, WindowManager owner)
+            : base(0, 0, width, height)
         {
-            DisplayDistanceBar = DisplayDistanceText = false;
-            if (!status.TargetDistanceM.HasValue) return;
-            if (status.CurrentMode == Mode.OS || status.CurrentMode == Mode.SR) return;
+            CircularSpeedGauge = new CircularSpeedGauge(
+                width,
+                height,
+                owner.Viewer.MilepostUnitsMetric ? (int)MpS.ToKpH(maxSpeedMpS) : (int)MpS.ToMpH(maxSpeedMpS),
+                owner.Viewer.MilepostUnitsMetric,
+                true,
+                (int)MpS.ToKpH(maxSpeedMpS) == 240 || (int)MpS.ToKpH(maxSpeedMpS) == 260,
+                0,
+                (MSTSLocomotive)owner.Viewer.PlayerLocomotive,
+                owner.Viewer,
+                null
+            );
+        }
 
-            float dist = status.TargetDistanceM.Value;
+        /// <summary>
+        /// Resize control to fit into a new rectangle, by keeping aspect ratio.
+        /// </summary>
+        /// <param name="width">The new width of the control</param>
+        /// <param name="height">The new height of the control</param>
+        public void SizeTo(int width, int height)
+        {
+            Position.Width = width;
+            Position.Height = height;
+            CircularSpeedGauge.SizeTo(width, height);
+        }
+
+        /// <summary>
+        /// Recalculate dial lines and numbers positions to a new speed scale.
+        /// </summary>
+        /// <param name="maxSpeedMpS">Maximal speed to show in m/s, which will be recalculated to the actual unit: km/h or mph</param>
+        public void SetRange(float maxSpeedMpS)
+        {
+            CircularSpeedGauge.SetRange(maxSpeedMpS);
+        }
+
+        public void PrepareFrame()
+        {
+            CircularSpeedGauge.PrepareFrame();
+        }
+        
+        internal override void Draw(SpriteBatch spriteBatch, Point position)
+        {
+            // Hack to adjust for track monitor
+            position.X += 8;
+            position.Y += 20;
 
 //            y += (int)VibrationTranslationM.Y * 100;
 
-            var text = (((int)(dist / 10)) * 10).ToString();
-            var fontSize = TargetDistanceFont.MeasureString(text) / Scale;
-            TargetDistanceText = new TextPrimitive(new Point((int)(54 - fontSize), (int)(30 - FontHeightTargetDistance) / 2), ColorGrey, text, TargetDistanceFont);
-
-            if (dist > 1000) dist = 1000;
-            double h;
-            if (dist < 100) h = dist / 100 * (185 - 152);
-            else
-            {
-                h = 185 - 152;
-                h += (Math.Log10(dist) - 2) * (152 + 1);
-            }
-            DistanceBar = new Vector4(29, 186 - (float)h, 10, (float)h);
-
-            DisplayDistanceText = true;
-            DisplayDistanceBar = status.CurrentMode != Mode.SR;
-        }
-        public override void ScaleChanged()
-        {
-            SetFont();
-        }
-        void SetFont()
-        {
-            TargetDistanceFont = GetFont(FontHeightTargetDistance);
+            CircularSpeedGauge.Draw(spriteBatch, position);
         }
     }
+
+    /// <summary>
+    /// Wrapper class for CircularSpeedGauge, to render it as a 2D cabview control
+    /// </summary>
+    public class CabViewCircularSpeedGaugeRenderer : CabViewDigitalRenderer
+    {
+        public readonly CircularSpeedGauge CircularSpeedGauge;
+        float PrevScale = 1;
+
+        [CallOnThread("Loader")]
+        public CabViewCircularSpeedGaugeRenderer(Viewer viewer, MSTSLocomotive locomotive, CVCDigital control, CabShader shader)
+            : base(viewer, locomotive, control, shader)
+        {
+            CircularSpeedGauge = new CircularSpeedGauge(
+                (int)Control.Width,
+                (int)Control.Height,
+                (int)Control.MaxValue,
+                Control.Units == CABViewControlUnits.KM_PER_HOUR,
+                true,
+                Control.MaxValue == 240 || Control.MaxValue == 260,
+                (int)Control.MinValue,
+                Locomotive,
+                Viewer,
+                shader
+            );
+        }
+
+        public override void PrepareFrame(RenderFrame frame, ElapsedTime elapsedTime)
+        {
+            base.PrepareFrame(frame, elapsedTime);
+            CircularSpeedGauge.PrepareFrame();
+
+            CircularSpeedGauge.SizeTo(DrawPosition.Width, DrawPosition.Height);
+            if (Math.Abs(1f - PrevScale / CircularSpeedGauge.Scale) > 0.1f)
+            {
+                PrevScale = CircularSpeedGauge.Scale;
+                CircularSpeedGauge.SetFont();
+            }
+        }
+
+		public override void Draw(GraphicsDevice graphicsDevice)
+        {
+            CircularSpeedGauge.Draw(CabShaderControlView.SpriteBatch, new Point(DrawPosition.X, DrawPosition.Y));
+        }
+    }
+
 }

@@ -1,0 +1,621 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Orts.Parsers.Msts</name>
+    </assembly>
+    <members>
+        <member name="T:Orts.Parsers.Msts.Interpolator">
+            <summary>
+            Interpolated table lookup
+            Supports linear or cubic spline interpolation
+            </summary>
+        </member>
+        <member name="T:Orts.Parsers.Msts.InterpolatorDiesel2D">
+            <summary>
+            two dimensional Interpolated table lookup - for use in Diesel
+            </summary>
+        </member>
+        <member name="T:Orts.Parsers.Msts.Interpolator2D">
+            <summary>
+            two dimensional Interpolated table lookup - Generic
+            </summary>
+        </member>
+        <member name="T:Orts.Parsers.Msts.SBR">
+            <summary>
+            Structured Block Reader can read compressed binary or uncompressed unicode files.
+            Its intended to replace the KujuBinary classes ( which are binary only ).
+            Every block must be closed with either Skip() or VerifyEndOfBlock()
+            </summary>
+        </member>
+        <member name="M:Orts.Parsers.Msts.SBR.Skip">
+            <summary>
+            Skip to the end of this block
+            </summary>
+        </member>
+        <member name="M:Orts.Parsers.Msts.SBR.ExpectComment">
+            <summary>
+            Verify that this is a comment block.
+            </summary>
+            <param name="block"></param>
+        </member>
+        <member name="T:Orts.Parsers.Msts.UnicodeFileReader">
+            <summary>
+            Structured unicode text file reader
+            </summary>
+        </member>
+        <member name="M:Orts.Parsers.Msts.UnicodeFileReader.Skip">
+            <summary>
+            Skip to the end of this block
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.UnicodeFileReader.EndOfBlock">
+            <summary>
+            Note, it doesn't consume the end of block marker, you must still
+            call VerifiyEndOfBlock to consume it
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Orts.Parsers.Msts.UnicodeBlockReader">
+            <summary>
+            Structured unicode text file reader
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.UnicodeBlockReader.TokenTable">
+            <summary>
+            Used to convert token string to their equivalent enum TokenID
+            </summary>
+        </member>
+        <member name="M:Orts.Parsers.Msts.UnicodeBlockReader.Skip">
+            <summary>
+            Skip to the end of this block
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.UnicodeBlockReader.EndOfBlock">
+            <summary>
+            Note, it doesn't consume the end of block marker, you must still
+            call VerifiyEndOfBlock to consume it
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:Orts.Parsers.Msts.BinaryFileReader">
+            <summary>
+            Structured kuju binary file reader
+            </summary>
+        </member>
+        <member name="M:Orts.Parsers.Msts.BinaryFileReader.#ctor(System.IO.Stream,System.String,System.Int32)">
+            <summary>
+            Assumes that fb is positioned just after the SIMISA@F header
+            filename is provided for error reporting purposes
+            Each block has a token ID.  It's value corresponds to the value of
+            the TokenID enum.  For some file types, ie .W files, the token value's 
+            will be offset into the TokenID table by the specified tokenOffset.
+            </summary>
+            <param name="fb"></param>
+        </member>
+        <member name="T:Orts.Parsers.Msts.BinaryBlockReader">
+            <summary>
+            Structured kuju binary file reader
+            </summary>
+        </member>
+        <member name="T:Orts.Parsers.Msts.STFReader">
+            <exception cref="T:Orts.Parsers.Msts.STFException"><para>
+            STF reports errors using the exception static members</para><para>
+            There are three broad categories of error</para><list class="bullet">
+            <listItem><para>Failure - Something which prevents loading from continuing, this throws an unhandled exception and drops out of Open Rails.</para></listItem>
+            <listItem><para>Error - The data read does not have logical meaning - STFReader does not generate these errors, this is only appropriate STFReader consumers who understand the context of the data being processed</para></listItem>
+            <listItem><para>Warning - When an error which can be programatically recovered from should be reported back to the user</para></listItem>
+            </list>
+            </exception>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.EndBlockCommentSentinel">
+            <summary>
+            Returned in lieu of an item for a comment that is the last item in a block.
+            </summary>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.#ctor(System.String,System.Boolean)">
+            <summary>Open a file, reader the header line, and prepare for STF parsing
+            </summary>
+            <param name="filename">Filename of the STF file to be opened and parsed.</param>
+            <param name="useTree"><para>true - if the consumer is going to use the Tree Property as it's parsing method (MSTS wagons &amp; engines)</para>
+            <para>false - if Tree is not used which signicantly reduces GC</para></param>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.#ctor(System.IO.Stream,System.String,System.Text.Encoding,System.Boolean)">
+            <summary>Use an open stream for STF parsing, this constructor assumes that the SIMIS signature has already been gathered (or there isn't one)
+            </summary>
+            <param name="inputStream">Stream that will be parsed.</param>
+            <param name="fileName">Is only used for error reporting.</param>
+            <param name="encoding">One of the Encoding formats, defined as static members in Encoding which return an Encoding type.  Eg. Encoding.ASCII or Encoding.Unicode</param>
+            <param name="useTree"><para>true - if the consumer is going to use the Tree Property as it's parsing method (MSTS wagons &amp; engines)</para>
+            <para>false - if Tree is not used which signicantly reduces GC</para></param>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.Dispose">
+            <summary>Implements the IDisposable interface so this class can be implemented with the 'using(STFReader r = new STFReader(...)) {...}' C# statement.
+            </summary>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.Dispose(System.Boolean)">
+            <summary>Releases the resources used by the STFReader.
+            </summary>
+            <param name="disposing">
+            <para>true - release managed and unmanaged resources.</para>
+            <para>false - release only unmanaged resources.</para>
+            </param>
+        </member>
+        <member name="P:Orts.Parsers.Msts.STFReader.Eof">
+            <summary>Property that returns true when the EOF has been reached
+            </summary>
+        </member>
+        <member name="P:Orts.Parsers.Msts.STFReader.FileName">
+            <summary>Filename property for the file being parsed - for reporting purposes
+            </summary>
+        </member>
+        <member name="P:Orts.Parsers.Msts.STFReader.LineNumber">
+            <summary>Line Number property for the file being parsed - for reporting purposes
+            </summary>
+        </member>
+        <member name="P:Orts.Parsers.Msts.STFReader.SimisSignature">
+            <summary>SIMIS header read from the first line of the file being parsed
+            </summary>
+        </member>
+        <member name="P:Orts.Parsers.Msts.STFReader.Tree">
+            <summary>Property returning the last {item} read using ReadItem() prefixed with string describing the nested block hierachy.
+            <para>The string returned is formatted 'rootnode(nestednode(childnode(previous_item'.</para>
+            </summary>
+            <remarks>
+            Tree is expensive method of reading STF files (especially for the GC) and should be avoided if possible.
+            </remarks>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadItem">
+            <summary>Returns the next whitespace delimited {item} from the STF file skipping comments, etc.
+            </summary>
+            <remarks>
+            <alert class="important">If a comment/skip/#*/_* ignore block is the last {item} in a block, rather than being totally consumed a dummy <see cref="F:Orts.Parsers.Msts.STFReader.EndBlockCommentSentinel"/> is returned, so if EndOFBlock() returns false, you always get an {item} (which can then just be ignored).</alert>
+            </remarks>
+            <returns>The next {item} from the STF file, any surrounding quotations will be not be returned.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadItem(System.Boolean)">
+            <summary>This is an internal function in STFReader, it returns the next whitespace delimited {item} from the STF file.
+            </summary>
+            <remarks>
+            <alert class="important">If a comment/skip/#*/_* ignore block is the last {item} in a block, rather than being totally consumed a dummy <see cref="F:Orts.Parsers.Msts.STFReader.EndBlockCommentSentinel"/> is returned, so if EndOFBlock() returns false, you always get an {item} (which can then just be ignored).</alert>
+            </remarks>
+            <param name="string_mode">When true normal comment processing is disabled.</param>
+            <returns>The next {item} from the STF file, any surrounding quotations will be not be returned.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.StepBackOneItem">
+            <summary>Calling this function causes ReadItem() to repeat the last {item} that was read from the STF file
+            </summary>
+            <remarks>
+            <para>The current implementation of StepBackOneItem() only allows for one "step back".</para>
+            <para>This means that there each call to StepBackOneItem() must have an intervening call to ReadItem().</para>
+            </remarks>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.MustMatch(System.String)">
+            <summary>Reports a critical error if the next {item} does not match the target.
+            </summary>
+            <param name="target">The next {item} contents we are expecting in the STF file.</param>
+            <returns>The {item} read from the STF file</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.EndOfBlock">
+            <summary>Returns true if the next character is the end of block, or end of file. Consuming the closing ")" all other values are not consumed.
+            </summary>
+            <remarks>
+            <para>An STF block should be enclosed in parenthesis, ie ( {data_item} {data_item} )</para>
+            </remarks>
+            <returns>
+            <para>true - An EOF, or closing parenthesis was found and consumed.</para>
+            <para>false - Another type of {item} was found but not consumed.</para>
+            </returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.SkipBlock">
+            <summary>Read a block open (, and then consume the rest of the block without processing.
+            If we find an immediate close ), then produce a warning, and return without consuming the parenthesis.
+            </summary>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.SkipRestOfBlock">
+            <summary>Skip to the end of this block, ignoring any nested blocks
+            </summary>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadString">
+            <summary>Return next whitespace delimited string from the STF file.
+            </summary>
+            <remarks>
+            <alert class="important">This differs from ReadInt in that normal comment processing is disabled.  ie an item that starts with _ is returned and not skipped.</alert>
+            </remarks>
+            <returns>The next {string_item} from the STF file, any surrounding quotations will be not be returned.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadHex(System.Nullable{System.UInt32})">
+            <summary>Read an hexidecimal encoded number {constant_item}
+            </summary>
+            <param name="defaultValue">the default value if an unexpected ')' token is found</param>
+            <returns>The next {constant_item} from the STF file.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadInt(System.Nullable{System.Int32})">
+            <summary>Read an signed integer {constant_item}
+            </summary>
+            <param name="defaultValue">the default value if an unexpected ')' token is found</param>
+            <returns>The next {constant_item} from the STF file.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadUInt(System.Nullable{System.UInt32})">
+            <summary>Read an unsigned integer {constant_item}
+            </summary>
+            <param name="defaultValue">the default value if an unexpected ')' token is found</param>
+            <returns>The next {constant_item} from the STF file.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadFloat(Orts.Parsers.Msts.STFReader.UNITS,System.Nullable{System.Single})">
+            <summary>Read an single precision floating point number {constant_item}
+            </summary>
+            <param name="validUnits">Any combination of the UNITS enumeration, to limit the available suffixes to reasonable values.</param>
+            <param name="defaultValue">the default value if an unexpected ')' token is found</param>
+            <returns>The next {constant_item} from the STF file, with the suffix normalized to OR units.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadDouble(System.Nullable{System.Double})">
+            <summary>Read an double precision floating point number {constant_item}
+            </summary>
+            <param name="defaultValue">the default value if an unexpected ')' token is found</param>
+            <returns>The next {constant_item} from the STF file.</returns>
+        </member>
+        <member name="T:Orts.Parsers.Msts.STFReader.UNITS">
+            <summary>Enumeration specifying which units are valid when parsing a numeric constant.
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.None">
+            <summary>No unit parsing is done on the {constant_item} - which is obviously fastest
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Compulsory">
+            <summary>Combined using an | with other UNITS if the unit is compulsory (compulsory units will slow parsing)
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Mass">
+            <summary>Valid Units: kg, t, lb
+            <para>Scaled to kilograms.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Distance">
+            <summary>Valid Units: m, cm, mm, km, ft, ', in, "
+            <para>Scaled to meters.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.AreaDefaultFT2">
+            <summary>Valid Units: *(ft^2)
+            <para>Scaled to square meters.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Volume">
+            <summary>
+            Valid Units: gal, l
+            <para>Scaled to litres.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.VolumeDefaultFT3">
+            <summary>Valid Units: *(ft^3)
+            <para>Scaled to cubic feet.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Time">
+            <summary>
+            Valid Units: s, m, h
+            <para>Scaled to secs.</para>
+            </summary>            
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.TimeDefaultM">
+            <summary>
+            Valid Units: s, m, h
+            <para>Scaled to secs.</para>
+            </summary>            
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.TimeDefaultH">
+            <summary>
+            Valid Units: s, m, h
+            <para>Scaled to secs.</para>
+            </summary>            
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Current">
+            <summary>
+            Valid Units: a, amps
+            <para>Scaled to amps.</para>
+            </summary>            
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Voltage">
+            <summary>
+            Valid Units: v, kv
+            <para>Scaled to v.</para>
+            </summary>            
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.MassRateDefaultLBpH">
+            <summary>Valid Units: lb/h
+            <para>Scaled to pounds per hour.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Speed">
+            <summary>Valid Units: m/s, mph, kph, kmh, km/h
+            <para>Scaled to meters/second.
+            See also SpeedMPH </para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.SpeedDefaultMPH">
+            <summary>Valid Units: m/s, mph, kph, kmh, km/h
+            <para>Scaled to miles/hour.</para>
+            Similar to UNITS.Speed except default unit is mph.
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Frequency">
+            <summary>
+            Valid Units: Hz, rps, rpm
+            <para>Scaled to Hz.</para>
+            </summary>            
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Force">
+            <summary>Valid Units: n, kn, lbf
+            <para>Scaled to newtons.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Power">
+            <summary>Valid Units: w, kw, hp
+            <para>Scaled to watts.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Stiffness">
+            <summary>Valid Units: n/m
+            <para>Scaled to newtons/metre.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Resistance">
+            <summary>Valid Units: n/m/s (+ '/m/s' in case the newtons is missed), lbf/mph 
+            <para>Scaled to newtons/speed(m/s)</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.PressureDefaultPSI">
+            <summary>Valid Units: psi, bar, inhg, kpa
+            <para>Scaled to pounds per square inch.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.PressureDefaultInHg">
+            <summary>Valid Units: psi, bar, inhg, kpa
+            <para>Scaled to pounds per square inch.</para>
+            Similar to UNITS.Pressure except default unit is inHg.
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.PressureRateDefaultPSIpS">
+            <summary>
+            Valid Units: psi/s, bar/s, inhg/s, kpa/s
+            <para>Scaled to psi/s.</para>
+            </summary>            
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.PressureRateDefaultInHgpS">
+            <summary>
+            Valid Units: psi/s, bar/s, inhg/s, kpa/s
+            <para>Scaled to psi/s.</para>
+            Similar to UNITS.PressureRate except default unit is inHg/s.
+            </summary>            
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.EnergyDensity">
+            <summary>Valid Units: kj/kg, j/g, btu/lb
+            <para>Scaled to kj/kg.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.TemperatureDifference">
+            <summary>
+            Valid Units: degc, degf
+            <para>Scaled to Deg Celsius</para>
+            </summary>            
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.RotationalInertia">
+            <summary>
+            Valid Units: kgm^2
+            <para>Scaled to kgm^2.</para>
+            </summary>            
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.ResistanceDavisC">
+            <summary>
+            Valid Units: Nm/s^2, lbf/mph^2
+            <para>Scaled to N/m/s^2.</para>
+            </summary>            
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.UNITS.Temperature">
+            <summary>
+            Valid Units: degc, degf
+            <para>Scaled to Deg Celsius</para>
+            </summary>            
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ParseUnitSuffix(System.String@,Orts.Parsers.Msts.STFReader.UNITS)">
+            <summary>This function removes known unit suffixes, and returns a scaler to bring the constant into the standard OR units.
+            </summary>
+            <remarks>This function is marked internal so it can be used to support arithmetic processing once the elements are seperated (eg. 5*2m)
+            </remarks>
+            <param name="constant">string with suffix (ie "23 mph"), after the function call the suffix is removed.</param>
+            <param name="validUnits">Any combination of the UNITS enumeration, to limit the available suffixes to reasonable values.</param>
+            <returns>The scaler that should be used to multiply the constant to convert into standard OR units.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadStringBlock(System.String)">
+            <summary>Read an string constant from the STF format '( {string_constant} ... )'
+            </summary>
+            <param name="defaultValue">the default value if the item is not found in the block.</param>
+            <returns>The first item inside the STF block.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadHexBlock(System.Nullable{System.UInt32})">
+            <summary>Read an hexidecimal encoded number from the STF format '( {int_constant} ... )'
+            </summary>
+            <param name="defaultValue">the default value if the constant is not found in the block.</param>
+            <returns>The STF block with the first {item} converted to a integer constant.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadIntBlock(System.Nullable{System.Int32})">
+            <summary>Read an integer constant from the STF format '( {int_constant} ... )'
+            </summary>
+            <param name="defaultValue">the default value if the constant is not found in the block.</param>
+            <returns>The STF block with the first {item} converted to a integer.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadUIntBlock(System.Nullable{System.UInt32})">
+            <summary>Read an unsigned integer constant from the STF format '( {uint_constant} ... )'
+            </summary>
+            <param name="defaultValue">the default value if the constant is not found in the block.</param>
+            <returns>The STF block with the first {item} converted to a unsigned integer.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadFloatBlock(Orts.Parsers.Msts.STFReader.UNITS,System.Nullable{System.Single})">
+            <summary>Read an single precision constant from the STF format '( {float_constant} ... )'
+            </summary>
+            <param name="validUnits">Any combination of the UNITS enumeration, to limit the available suffixes to reasonable values.</param>
+            <param name="defaultValue">the default value if the constant is not found in the block.</param>
+            <returns>The STF block with the first {item} converted to a single precision constant.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadDoubleBlock(System.Nullable{System.Double})">
+            <summary>Read an double precision constant from the STF format '( {double_constant} ... )'
+            </summary>
+            <param name="defaultValue">the default value if the constant is not found in the block.</param>
+            <returns>The STF block with the first {item} converted to a double precision value.</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadBoolBlock(System.Boolean)">
+            <summary>Reads the first item from a block in the STF format '( {double_constant} ... )' and return true if is not-zero or 'true'
+            </summary>
+            <param name="defaultValue">the default value if a item is not found in the block.</param>
+            <returns><para>true - If the first {item} in the block is non-zero or 'true'.</para>
+            <para>false - If the first {item} in the block is zero or 'false'.</para></returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadVector3Block(Orts.Parsers.Msts.STFReader.UNITS,Microsoft.Xna.Framework.Vector3)">
+            <summary>Read a Vector3 object in the STF format '( {X} {Y} {Z} ... )'
+            </summary>
+            <param name="validUnits">Any combination of the UNITS enumeration, to limit the available suffixes to reasonable values.</param>
+            <param name="defaultValue">The default vector if any of the values are not specified</param>
+            <returns>The STF block as a Vector3</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadVector2Block(Orts.Parsers.Msts.STFReader.UNITS,Microsoft.Xna.Framework.Vector2)">
+            <summary>Read a Vector3 object in the STF format '( {X} {Y} ... )'
+            </summary>
+            <param name="validUnits">Any combination of the UNITS enumeration, to limit the available suffixes to reasonable values.</param>
+            <param name="defaultValue">The default vector if any of the values are not specified</param>
+            <returns>The STF block as a Vector2</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadVector4Block(Orts.Parsers.Msts.STFReader.UNITS,Microsoft.Xna.Framework.Vector4)">
+            <summary>Read a Vector4 object in the STF format '( {X} {Y} {Z} {W} ... )'
+            </summary>
+            <param name="validUnits">Any combination of the UNITS enumeration, to limit the available suffixes to reasonable values.</param>
+            <param name="defaultValue">The default vector if any of the values are not specified</param>
+            <returns>The STF block as a Vector4</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ParseFile(Orts.Parsers.Msts.STFReader.TokenProcessor[])">
+            <summary>Parse an STF file until the EOF, using the array of lower case tokens, with a processor delegate/lambda
+            </summary>
+            <param name="processors">Array of lower case token, and the delegate/lambda to call when matched.</param>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ParseFile(Orts.Parsers.Msts.STFReader.ParsingBreak,Orts.Parsers.Msts.STFReader.TokenProcessor[])">
+            <summary>Parse an STF file until the EOF, using the array of lower case tokens, with a processor delegate/lambda
+            </summary>
+            <param name="breakout">A delegate that returns true, if the processing should be halted prematurely</param>
+            <param name="processors">Array of lower case token, and the delegate/lambda to call when matched.</param>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ParseBlock(Orts.Parsers.Msts.STFReader.TokenProcessor[])">
+            <summary>Parse an STF file until the end of block ')' marker, using the array of lower case tokens, with a processor delegate/lambda
+            </summary>
+            <param name="processors">Array of lower case token, and the delegate/lambda to call when matched.</param>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ParseBlock(Orts.Parsers.Msts.STFReader.ParsingBreak,Orts.Parsers.Msts.STFReader.TokenProcessor[])">
+            <summary>Parse an STF file until the end of block ')' marker, using the array of lower case tokens, with a processor delegate/lambda
+            </summary>
+            <param name="breakout">A delegate that returns true, if the processing should be halted prematurely</param>
+            <param name="processors">Array of lower case token, and the delegate/lambda to call when matched.</param>
+        </member>
+        <member name="T:Orts.Parsers.Msts.STFReader.Processor">
+            <summary>This delegate definition is used by the ParseFile and ParseBlock methods, and is called when an associated matching token is found.
+            </summary>
+        </member>
+        <member name="T:Orts.Parsers.Msts.STFReader.ParsingBreak">
+            <summary>This delegate definition is used by the ParseFile and ParseBlock methods, and is used to break out of the processing loop prematurely.
+            </summary>
+            <returns>true - if the parsing should be aborted prematurely</returns>
+        </member>
+        <member name="T:Orts.Parsers.Msts.STFReader.TokenProcessor">
+            <summary>A structure used to index lambda functions to a lower cased token.
+            </summary>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.TokenProcessor.#ctor(System.String,Orts.Parsers.Msts.STFReader.Processor)">
+            <summary>This constructor is used for the arguments to ParseFile and ParseBlock.
+            </summary>
+            <param name="t">The lower case token.</param>
+            <param name="p">A lambda function or delegate that will be called from the Parse...() method.</param>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.streamSTF">
+            <summary>The I/O stream for the STF file we are processing
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.includeReader">
+            <summary>includeReader is used recursively in ReadItem() to handle the 'include' token, file include mechanism
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.previousItem">
+            <summary>Remembers the last returned ReadItem().  If the next {item] is a '(', this is the block name used in the tree.
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.block_depth">
+            <summary>How deep in nested blocks the current parser is
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.tree">
+            <summary>A list describing the hierachy of nested block tokens
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.tree_cache">
+            <summary>The tree cache is used to minimize the calls to StringBuilder when Tree is called repetively for the same hierachy.
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.stepbackoneitemFlag">
+            <summary>This flag is set in StepBackOneItem(), and causes ReadItem(), to use the stepback* variables to do an item repeat
+            </summary>
+        </member>
+        <member name="T:Orts.Parsers.Msts.STFReader.STEPBACK">
+            <summary>Internal Structure used to group together the variables used to implement step back functionality.
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.STEPBACK.Item">
+            <summary>The stepback* variables store the previous state, so StepBackOneItem() can jump back on {item}. stepbackItem « ReadItem() return
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.STEPBACK.PrevItem">
+            <summary>The stepback* variables store the previous state, so StepBackOneItem() can jump back on {item}. stepbackCurrItem « previousItem
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.STEPBACK.Tree">
+            <summary>The stepback* variables store the previous state, so StepBackOneItem() can jump back on {item}. stepbackTree « tree
+            <para>This item, is optimized, so when value is null it means stepbackTree was the same as Tree, so we don't create unneccessary memory duplicates of lists.</para>
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.STEPBACK.BlockDepth">
+            <summary>The stepback* variables store the previous state, so StepBackOneItem() can jump back on {item}. BlockDepth « block_depth
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.STFReader.itemBuilder">
+            <summary>This is really a local variable in the function ReadItem(...) but it is a class member to stop unnecessary memory re-allocations.
+            </summary>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.ReadItem(System.Boolean,System.Boolean)">
+            <summary>Internal Implementation - This is the main function that reads an item from the STF stream.
+            </summary>
+            <param name="skip_mode">True - we are in a skip function, and so we don't want to do any special token processing.</param>
+            <param name="string_mode">True - we are expecting a string, so don't skip comments.</param>
+            <returns>The next item from the STF file</returns>
+        </member>
+        <member name="M:Orts.Parsers.Msts.STFReader.UpdateTreeAndStepBack(System.String)">
+            <summary>Internal Implementation
+            <para>This function is called by ReadItem() for every item read from the STF file (and Included files).</para>
+            <para>If a block instuction is found, then tree list is updated.</para>
+            <para>As this function is called once per ReadItem() is stores the previous value in stepback* variables (there is additional optimization that we only copy stepbackTree if the tree has changed.</para>
+            <para>Now when the stepbackoneitemFlag flag is set, we use the stepback* copies, to move back exactly one item.</para>
+            </summary>
+            <param name="token"></param>
+        </member>
+        <member name="T:Orts.Parsers.Msts.TokenID">
+            <summary>
+            Provides an enum for all the binary tokens used
+            in the header record in the Kuju compressed
+            binary file format.
+            </summary>
+        </member>
+        <member name="F:Orts.Parsers.Msts.TokenID.error">
+            These were taken from coreids.tok ( in the UTILS folder )
+        </member>
+        <member name="F:Orts.Parsers.Msts.TokenID.Static">
+            //////////////////////////////////////////////////////
+        </member>
+    </members>
+</doc>
